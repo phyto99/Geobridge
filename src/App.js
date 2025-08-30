@@ -98,112 +98,171 @@ const createPolygonData = (countries) => {
   return [...surfaceOutlines, ...elevatedCountries];
 };
 
-// Simple and efficient region boundary generator
-const createRegionBoundaryData = (countries) => {
+// Data-driven region boundary generator using GeoJSON properties
+const createDataDrivenRegionBoundaries = (countries) => {
   const boundaries = [];
   
-  // Create a map of regions to their country boundaries
-  const regionBoundaryMap = new Map();
-  
-  countries.forEach(country => {
-    const countryCode = getCountryCode(country);
-    const region = REGION_MAPPING[countryCode];
-    if (!region || region === 'n/a') return;
+  // Create regions based on actual geographic data
+  const createDataDrivenRegions = (countries) => {
+    const regionMap = new Map();
     
-    if (!regionBoundaryMap.has(region)) {
-      regionBoundaryMap.set(region, []);
-    }
-    
-    // Add country boundary to region
-    const processGeometry = (geometry) => {
-      if (geometry.type === 'Polygon') {
-        return geometry.coordinates.map(ring => ({
-          coordinates: ring,
-          country: countryCode,
-          region: region
-        }));
-      } else if (geometry.type === 'MultiPolygon') {
-        return geometry.coordinates.flatMap(polygon => 
-          polygon.map(ring => ({
-            coordinates: ring,
-            country: countryCode,
-            region: region
-          }))
-        );
+    countries.forEach(country => {
+      const continent = country.properties.CONTINENT || 'Unknown';
+      const subregion = country.properties.SUBREGION || country.properties.REGION_UN || 'Unknown';
+      
+      // Create a more natural regional grouping
+      let regionKey;
+      if (continent === 'Europe') {
+        // Use more detailed European subregions
+        regionKey = `europe_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+      } else if (continent === 'Africa') {
+        // Group African countries by UN subregions
+        regionKey = `africa_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+      } else if (continent === 'Asia') {
+        // Use detailed Asian subregions
+        regionKey = `asia_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+      } else if (continent === 'North America') {
+        // Distinguish between North America proper and Central America/Caribbean
+        if (subregion === 'Northern America') {
+          regionKey = 'north_america';
+        } else {
+          regionKey = 'central_america_caribbean';
+        }
+      } else if (continent === 'South America') {
+        regionKey = 'south_america';
+      } else if (continent === 'Oceania') {
+        regionKey = `oceania_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+      } else {
+        regionKey = continent.toLowerCase().replace(/[\s&]+/g, '_');
       }
-      return [];
-    };
+      
+      if (!regionMap.has(regionKey)) {
+        regionMap.set(regionKey, []);
+      }
+      regionMap.get(regionKey).push(country);
+    });
     
-    const countryBoundaries = processGeometry(country.geometry);
-    regionBoundaryMap.get(region).push(...countryBoundaries);
-  });
+    return regionMap;
+  };
   
-  // Find boundaries between different regions
-  const regions = Array.from(regionBoundaryMap.keys());
-  const adjacencyMap = new Map();
+  const dataRegions = createDataDrivenRegions(countries);
   
-  for (let i = 0; i < regions.length; i++) {
-    for (let j = i + 1; j < regions.length; j++) {
-      const region1 = regions[i];
-      const region2 = regions[j];
-      const boundaries1 = regionBoundaryMap.get(region1);
-      const boundaries2 = regionBoundaryMap.get(region2);
+  // Create boundary data by finding adjacent countries from different regions
+  const regionArray = Array.from(dataRegions.entries());
+  
+  for (let i = 0; i < regionArray.length; i++) {
+    for (let j = i + 1; j < regionArray.length; j++) {
+      const [region1Name, region1Countries] = regionArray[i];
+      const [region2Name, region2Countries] = regionArray[j];
       
-      // Check for adjacency between regions
-      let foundAdjacency = false;
-      const adjacentSegments = [];
-      
-      boundaries1.forEach(boundary1 => {
-        boundaries2.forEach(boundary2 => {
-          // Check if boundaries share points (indicating adjacency)
-          const coords1 = boundary1.coordinates;
-          const coords2 = boundary2.coordinates;
+      // Find countries that are geographically adjacent between regions
+      region1Countries.forEach(country1 => {
+        region2Countries.forEach(country2 => {
+          // Check if countries share a border by examining coordinate proximity
+          const coords1 = extractCoordinates(country1.geometry);
+          const coords2 = extractCoordinates(country2.geometry);
           
-          const sharedPoints = [];
-          coords1.forEach(coord1 => {
-            coords2.forEach(coord2 => {
-              const distance = Math.sqrt(
-                Math.pow(coord1[0] - coord2[0], 2) + 
-                Math.pow(coord1[1] - coord2[1], 2)
-              );
-              if (distance < 0.01) { // Very close points
-                sharedPoints.push(coord1);
-              }
-            });
-          });
+          const sharedBoundary = findSharedBoundary(coords1, coords2);
           
-          if (sharedPoints.length >= 2) {
-            foundAdjacency = true;
-            adjacentSegments.push({
-              coordinates: sharedPoints,
-              regions: [region1, region2]
+          if (sharedBoundary.length >= 2) {
+            boundaries.push({
+              coordinates: sharedBoundary,
+              regions: [region1Name, region2Name],
+              countries: [
+                getCountryCode(country1), 
+                getCountryCode(country2)
+              ],
+              id: `boundary_${region1Name}_${region2Name}_${boundaries.length}`,
+              type: 'data_driven_boundary'
             });
           }
         });
       });
-      
-      if (foundAdjacency) {
-        const key = [region1, region2].sort().join('-');
-        adjacencyMap.set(key, adjacentSegments);
-      }
     }
   }
   
-  // Convert adjacency map to boundary lines
-  Array.from(adjacencyMap.entries()).forEach(([key, segments]) => {
-    segments.forEach((segment, index) => {
-      if (segment.coordinates.length >= 2) {
-        boundaries.push({
-          coordinates: segment.coordinates,
-          regions: segment.regions,
-          id: `region_boundary_${key}_${index}`,
-          type: 'region_boundary'
-        });
+  return boundaries;
+};
+
+// Helper function to extract coordinates from geometry
+const extractCoordinates = (geometry) => {
+  if (geometry.type === 'Polygon') {
+    return geometry.coordinates[0]; // Outer ring
+  } else if (geometry.type === 'MultiPolygon') {
+    // Return coordinates from the largest polygon
+    let largestPolygon = geometry.coordinates[0];
+    let maxLength = largestPolygon[0].length;
+    
+    geometry.coordinates.forEach(polygon => {
+      if (polygon[0].length > maxLength) {
+        largestPolygon = polygon;
+        maxLength = polygon[0].length;
+      }
+    });
+    
+    return largestPolygon[0]; // Outer ring of largest polygon
+  }
+  return [];
+};
+
+// Helper function to find shared boundary points between two coordinate arrays
+const findSharedBoundary = (coords1, coords2, tolerance = 0.01) => {
+  const sharedPoints = [];
+  const usedIndices = new Set();
+  
+  coords1.forEach((coord1, i1) => {
+    coords2.forEach((coord2, i2) => {
+      if (usedIndices.has(i2)) return;
+      
+      const distance = Math.sqrt(
+        Math.pow(coord1[0] - coord2[0], 2) + 
+        Math.pow(coord1[1] - coord2[1], 2)
+      );
+      
+      if (distance < tolerance) {
+        sharedPoints.push(coord1);
+        usedIndices.add(i2);
       }
     });
   });
   
-  return boundaries;
+  // Sort shared points to create a coherent boundary line
+  if (sharedPoints.length >= 2) {
+    return sortBoundaryPoints(sharedPoints);
+  }
+  
+  return sharedPoints;
+};
+
+// Helper function to sort boundary points into a coherent line
+const sortBoundaryPoints = (points) => {
+  if (points.length <= 2) return points;
+  
+  const sorted = [points[0]];
+  const remaining = points.slice(1);
+  
+  while (remaining.length > 0) {
+    const lastPoint = sorted[sorted.length - 1];
+    let closestIndex = 0;
+    let minDistance = Infinity;
+    
+    remaining.forEach((point, index) => {
+      const distance = Math.sqrt(
+        Math.pow(lastPoint[0] - point[0], 2) + 
+        Math.pow(lastPoint[1] - point[1], 2)
+      );
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
+      }
+    });
+    
+    sorted.push(remaining[closestIndex]);
+    remaining.splice(closestIndex, 1);
+  }
+  
+  return sorted;
 };
 
 // Height calculation functions
@@ -228,10 +287,35 @@ const GlobeWrapper = ({
   const [heightFilter, setHeightFilter] = useState('none');
   const [regionBoundaries, setRegionBoundaries] = useState([]);
   
-  // Memoized country region lookup
+  // Memoized country region lookup with data-driven fallback
   const getCountryRegion = useCallback((country) => {
     const countryCode = getCountryCode(country);
-    return REGION_MAPPING[countryCode] || 'n/a';
+    
+    // First try manual mapping
+    const manualRegion = REGION_MAPPING[countryCode];
+    if (manualRegion && manualRegion !== 'n/a') {
+      return manualRegion;
+    }
+    
+    // Fallback to data-driven region
+    const continent = country.properties?.CONTINENT || 'Unknown';
+    const subregion = country.properties?.SUBREGION || country.properties?.REGION_UN || 'Unknown';
+    
+    if (continent === 'Europe') {
+      return `europe_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+    } else if (continent === 'Africa') {
+      return `africa_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+    } else if (continent === 'Asia') {
+      return `asia_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+    } else if (continent === 'North America') {
+      return subregion === 'Northern America' ? 'north_america' : 'central_america_caribbean';
+    } else if (continent === 'South America') {
+      return 'south_america';
+    } else if (continent === 'Oceania') {
+      return `oceania_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+    }
+    
+    return continent.toLowerCase().replace(/[\s&]+/g, '_');
   }, []);
   
   // Memoized polygon data
@@ -269,8 +353,8 @@ const GlobeWrapper = ({
 
         setCountries(fixedData);
         
-        // Create region boundaries
-        const boundaries = createRegionBoundaryData(filtered);
+        // Create data-driven region boundaries
+        const boundaries = createDataDrivenRegionBoundaries(filtered);
         setRegionBoundaries(boundaries);
       })
       .catch(err => {
@@ -504,7 +588,13 @@ const GlobeWrapper = ({
           {hoverD && (
             <div><strong>Region:</strong> {getCountryRegion(hoverD).replace('_', ' ')}</div>
           )}
-          <div><strong>Region Boundaries:</strong> {regionBoundaries.length}</div>
+          <div><strong>Data-Driven Boundaries:</strong> {regionBoundaries.length}</div>
+          {hoverD && hoverD.properties && (
+            <div style={{ fontSize: '12px', marginTop: '5px', opacity: 0.8 }}>
+              <div><strong>Continent:</strong> {hoverD.properties.CONTINENT}</div>
+              <div><strong>Subregion:</strong> {hoverD.properties.SUBREGION}</div>
+            </div>
+          )}
         </div>
 
       {/* Right Panel Container - ensures proper alignment */}
@@ -660,7 +750,7 @@ const GlobeWrapper = ({
         <div>Height: {heightFilter === 'none' ? 'Flat' : heightFilter.toUpperCase()}</div>
         <div style={{ color: '#00FFFF' }}>◾ Player 1 Countries</div>
         <div style={{ color: '#FF00FF' }}>◾ Player 2 Countries</div>
-        <div style={{ color: '#FFFFFF' }}>━ Region Boundaries</div>
+        <div style={{ color: '#FFFFFF' }}>━ Data-Driven Boundaries</div>
         <div style={{ marginTop: '5px', fontSize: '11px' }}>
           Hover: Region highlights<br/>
           Click: Select country
