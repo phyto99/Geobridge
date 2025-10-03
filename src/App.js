@@ -1730,9 +1730,9 @@ const GlobeWrapper = ({
     const totalHeight = Math.max(minContentHeight + contentHeight, 140);
     
     // Hexagon should maintain perfect equilateral proportions
-    // For a regular hexagon: width = height * 0.866 (sin(60°))
-    // Remove width limits to allow proper scaling with content
-    const width = totalHeight * 0.866;
+    // For the CSS hexagon clip-path to look equilateral, width should be slightly larger than height
+    // Based on the original working ratio of ~0.87, but allowing unlimited scaling
+    const width = totalHeight * 1.15;
 
     return `
       <div style="
