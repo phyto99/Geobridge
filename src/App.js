@@ -1713,7 +1713,7 @@ const GlobeWrapper = ({
           return `<div style="font-size: 10px; margin: 1px 0; color: #ffaa00; text-decoration: line-through; text-align: center;">⚠️ ${displayName}: ${formattedValue}</div>`;
         }
         
-        return `<div style="font-size: 10px; margin: 1px 0; text-align: center;">${displayName}: ${formattedValue}</div>`;
+        return `<div style="font-size: 10px; margin: 1px 0; text-align: center;"><span style="color: #666666;">${displayName}:</span> <span style="color: white;">${formattedValue}</span></div>`;
       } catch (error) {
         console.warn(`Error getting data for ${datasetId}:`, error);
         return `<div style="font-size: 10px; margin: 1px 0; color: #ff6b6b; text-align: center;">${dataset.name}: Error</div>`;
@@ -1753,11 +1753,21 @@ const GlobeWrapper = ({
       ">
         <div style="
           position: absolute;
+          top: -2px;
+          left: -2px;
+          width: calc(100% + 4px);
+          height: calc(100% + 4px);
+          background: white;
+          clip-path: polygon(50% 0%, 86.6% 25%, 86.6% 75%, 50% 100%, 13.4% 75%, 13.4% 25%);
+          z-index: -2;
+        "></div>
+        <div style="
+          position: absolute;
           top: 0;
           left: 0;
           width: 100%;
           height: 100%;
-          background: rgba(40, 40, 40, 0.95);
+          background: #252525;
           clip-path: polygon(50% 0%, 86.6% 25%, 86.6% 75%, 50% 100%, 13.4% 75%, 13.4% 25%);
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
           z-index: -1;
@@ -1810,16 +1820,19 @@ const GlobeWrapper = ({
 
   // Add this state with your other useState hooks:
   const [allianceStates, setAllianceStates] = useState({
-    player1: 'neutral',
-    player2: 'neutral'
+    player1: false, // false = default state, true = alliance sent
+    player2: false
   });
 
   // Add this handler with your other functions:
   const handleAllianceAction = (playerId, action) => {
-    setAllianceStates(prev => ({
-      ...prev,
-      [playerId]: action === 'send' ? (prev[playerId] === 'neutral' ? 'sent' : 'neutral') : 'neutral'
-    }));
+    // Only respond to word buttons (SEND/RESCIND), ignore player name buttons
+    if (action === 'send' || action === 'rescind') {
+      setAllianceStates(prev => ({
+        ...prev,
+        [playerId]: !prev[playerId] // Simply toggle the state
+      }));
+    }
   };
 
 
@@ -1927,9 +1940,9 @@ const GlobeWrapper = ({
 
         {/* Alliance Panel */}
         <div style={{
-          width: '358px', // Match the approximate width of the buttons above
+          width: '380px',
           backgroundColor: 'black',
-          border: '2px solid white'
+          border: '1px solid white'
         }}>
           {/* Alliance Header */}
           <div style={{
@@ -1939,80 +1952,57 @@ const GlobeWrapper = ({
             textAlign: 'center',
             fontSize: '14px',
             fontWeight: 'bold',
-            border: '1px solid white',
-            borderBottom: '2px solid white'
+            borderBottom: '1px solid white'
           }}>
             Alliances
           </div>
 
           {/* Team Sections */}
-          <div style={{ padding: '8px 20px' }}>
+          <div style={{ padding: '8px 30px' }}>
             {Object.entries(teamColors).map(([playerId, color]) => {
               const playerNumber = playerId.replace('player', '');
-              const allianceState = allianceStates[playerId] || 'neutral';
+              const isAllianceSent = allianceStates[playerId];
 
               return (
                 <div key={playerId} style={{
-                  position: 'relative',
                   marginBottom: '8px',
                   height: '32px',
                   border: '1px solid white',
                   display: 'flex'
                 }}>
-                  {/* Rescind Button - Always greyed out */}
                   <button
-                    onClick={() => handleAllianceAction(playerId, 'rescind')}
+                    onClick={() => handleAllianceAction(playerId, isAllianceSent ? 'rescind' : 'player')}
                     style={{
                       width: '50%',
                       height: '100%',
-                      backgroundColor: '#444444',
-                      color: '#888888',
-                      border: '1px solid white',
+                      backgroundColor: !isAllianceSent ? 'black' : '#444444',
+                      color: !isAllianceSent ? color : '#888888',
+                      border: 'none',
                       borderRight: '1px solid white',
                       fontSize: '11px',
-                      cursor: 'pointer',
-                      opacity: 0.7
+                      fontWeight: 'bold',
+                      cursor: !isAllianceSent ? 'default' : 'pointer',
+                      transition: 'all 0.2s ease'
                     }}
                   >
-                    RESCIND
+                    {!isAllianceSent ? `PLAYER ${playerNumber}` : 'RESCIND'}
                   </button>
 
-                  {/* Team Name - slides between halves */}
-                  <div style={{
-                    position: 'absolute',
-                    left: allianceState === 'sent' ? '0%' : '50%',
-                    top: '0',
-                    width: '50%',
-                    height: '100%',
-                    backgroundColor: 'black',
-                    color: color,
-                    border: '1px solid white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    zIndex: 102,
-                    pointerEvents: 'none',
-                    transition: 'left 0.3s ease'
-                  }}>
-                    PLAYER {playerNumber}
-                  </div>
-
-                  {/* Send Button */}
                   <button
-                    onClick={() => handleAllianceAction(playerId, 'send')}
+                    onClick={() => handleAllianceAction(playerId, !isAllianceSent ? 'send' : 'player')}
                     style={{
                       width: '50%',
                       height: '100%',
-                      backgroundColor: '#666666',
-                      color: 'white',
-                      border: '1px solid white',
+                      backgroundColor: !isAllianceSent ? '#666666' : 'black',
+                      color: !isAllianceSent ? 'white' : color,
+                      border: 'none',
                       fontSize: '11px',
-                      cursor: 'pointer'
+                      fontWeight: 'bold',
+                      cursor: !isAllianceSent ? 'pointer' : 'default',
+                      transition: 'all 0.2s ease'
                     }}
                   >
-                    SEND
+                    {!isAllianceSent ? 'SEND' : `PLAYER ${playerNumber}`}
                   </button>
                 </div>
               );
