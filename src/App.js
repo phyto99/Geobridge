@@ -1729,8 +1729,10 @@ const GlobeWrapper = ({
     const contentHeight = selectedDatasets.length * rowHeight;
     const totalHeight = Math.max(minContentHeight + contentHeight, 140);
     
-    // Hexagon should maintain proper proportions (width should be ~0.87 * height for regular hexagon)
-    const width = Math.max(200, Math.min(280, totalHeight * 0.87));
+    // Hexagon should maintain perfect equilateral proportions
+    // For a regular hexagon: width = height * 0.866 (sin(60°))
+    // Remove width limits to allow proper scaling with content
+    const width = totalHeight * 0.866;
 
     return `
       <div style="
