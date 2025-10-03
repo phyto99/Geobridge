@@ -898,13 +898,12 @@ const AVAILABLE_DATASETS = {
     getter: (feat) => {
       const code = feat.properties.ISO_A2;
       const area = feat.properties.AREA || 0;
-      // Major coffee producers
+      // Major coffee producers - EXACT DATA ONLY
       const majorProducers = { 'BR': 3000000, 'VN': 1800000, 'CO': 800000, 'ID': 700000, 'ET': 400000, 'HN': 350000, 'IN': 300000, 'UG': 280000, 'MX': 250000, 'GT': 200000 };
-      if (majorProducers[code]) return majorProducers[code] * (0.8 + Math.random() * 0.4);
+      if (majorProducers[code]) return majorProducers[code];
       
-      // Tropical countries with some production
-      const tropicalCountries = ['PE', 'EC', 'NI', 'CR', 'PA', 'VE', 'BO', 'PY', 'KE', 'TZ', 'RW', 'PG', 'PH', 'TH', 'LA', 'MM'];
-      if (tropicalCountries.includes(code)) return area * 0.1 * Math.random();
+      // NO DATA AVAILABLE - DO NOT ESTIMATE
+      return null;
       
       return 0;
     },
@@ -970,9 +969,8 @@ const AVAILABLE_DATASETS = {
       const pop = feat.properties.POP_EST || 1;
       const code = feat.properties.ISO_A2;
       // Industrial powerhouses
-      const industrial = ['CN', 'US', 'DE', 'JP', 'KR', 'IN', 'IT', 'FR', 'GB', 'BR', 'MX', 'RU'];
-      const multiplier = industrial.includes(code) ? 1.5 : 1;
-      return Math.max(50, Math.min(300, (gdp / 1000) * multiplier + Math.random() * 50));
+      // NO RANDOMIZED DATA - RETURN NULL IF NO EXACT DATA
+      return null;
     },
     unit: 'index',
     format: (val) => `${Math.round(val)}`
@@ -984,12 +982,12 @@ const AVAILABLE_DATASETS = {
     getter: (feat) => {
       const code = feat.properties.ISO_A2;
       const gdp = feat.properties.GDP_MD_EST || 0;
-      // Major tourist destinations
+      // Major tourist destinations - EXACT DATA ONLY
       const touristHotspots = { 'FR': 90, 'ES': 85, 'US': 80, 'CN': 65, 'IT': 65, 'TR': 50, 'MX': 45, 'TH': 40, 'DE': 40, 'GB': 38 };
-      if (touristHotspots[code]) return touristHotspots[code] * (0.8 + Math.random() * 0.4);
+      if (touristHotspots[code]) return touristHotspots[code];
       
-      // Other countries based on GDP and geographic factors
-      return Math.max(0.1, Math.min(30, gdp / 1000 + Math.random() * 10));
+      // NO DATA AVAILABLE - DO NOT ESTIMATE
+      return null;
     },
     unit: 'M',
     format: (val) => `${Math.round(val * 10) / 10}M`
@@ -1002,11 +1000,12 @@ const AVAILABLE_DATASETS = {
     category: 'Energy Institute',
     getter: (feat) => {
       const code = feat.properties.ISO_A2;
-      // Major oil producers (thousands of barrels per day)
+      // Major oil producers (thousands of barrels per day) - EXACT DATA ONLY
       const oilProducers = { 'US': 12000, 'RU': 11000, 'SA': 10000, 'CA': 5500, 'IQ': 4500, 'CN': 4000, 'AE': 3500, 'BR': 3000, 'KW': 2700, 'IR': 2500, 'NO': 2000, 'MX': 1800, 'KZ': 1800, 'NG': 1700, 'QA': 1500 };
-      if (oilProducers[code]) return oilProducers[code] * 1000 * (0.8 + Math.random() * 0.4);
+      if (oilProducers[code]) return oilProducers[code] * 1000;
       
-      return Math.random() * 50000; // Small producers
+      // NO DATA AVAILABLE - DO NOT ESTIMATE
+      return null;
     },
     unit: 'bbl/day',
     format: (val) => val > 1000000 ? `${Math.round(val / 1000000)}M bbl/day` : `${Math.round(val / 1000)}K bbl/day`
@@ -1035,13 +1034,12 @@ const AVAILABLE_DATASETS = {
     category: 'USGS Minerals',
     getter: (feat) => {
       const code = feat.properties.ISO_A2;
-      // Major gold producers
+      // Major gold producers - EXACT DATA ONLY
       const goldProducers = { 'CN': 380, 'AU': 330, 'RU': 300, 'US': 200, 'CA': 180, 'PE': 140, 'GH': 130, 'ZA': 120, 'MX': 110, 'UZ': 100 };
-      if (goldProducers[code]) return goldProducers[code] * (0.8 + Math.random() * 0.4);
+      if (goldProducers[code]) return goldProducers[code];
       
-      // Other countries with some mining
-      const area = feat.properties.AREA || 0;
-      return Math.max(0, area * 0.00001 * Math.random());
+      // NO DATA AVAILABLE - DO NOT ESTIMATE
+      return null;
     },
     unit: 'tonnes',
     format: (val) => `${Math.round(val)} tonnes`
