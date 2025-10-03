@@ -1477,66 +1477,91 @@ const GlobeWrapper = ({
             normalized = normalized;
           }
         } else {
-          // Natural-looking reverse logarithmic scaling for perfect viewing
+          // ADAPTIVE LOGARITHMIC SYSTEM - transitions between reverse-log and regular-log
           const { values } = heightStats;
           const sortedValues = [...values].sort((a, b) => a - b);
           
-          // Calculate how "equal" the countries are (coefficient of variation)
+          // Calculate distribution characteristics
           const stdDev = Math.sqrt(values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length);
-          const coefficientOfVariation = stdDev / mean;
+          const coefficientOfVariation = stdDev / Math.max(mean, 0.001);
           
-          // Calculate percentiles for distribution analysis
-          const p50 = median;
+          // Key percentiles for outlier detection
           const p75 = sortedValues[Math.floor(sortedValues.length * 0.75)];
           const p90 = sortedValues[Math.floor(sortedValues.length * 0.90)];
           const p95 = sortedValues[Math.floor(sortedValues.length * 0.95)];
+          const p99 = sortedValues[Math.floor(sortedValues.length * 0.99)];
           
-          // Determine how "spread out" the data naturally is
-          const naturalSpread = (p95 - p50) / (max - min);
+          // OUTLIER INTENSITY ANALYSIS
+          // Calculate how extreme the outliers are
+          const maxToP95Ratio = max / Math.max(p95, 0.001);
+          const maxToP90Ratio = max / Math.max(p90, 0.001);
+          const p99ToP90Ratio = p99 / Math.max(p90, 0.001);
           
-          // REVERSE LOGARITHMIC: Use exponents > 1 to create clear winners
-          let baseExponent;
+          // Calculate top compression (how much of the range is taken by top 5%)
+          const topCompression = (max - p95) / Math.max(max - min, 0.001);
           
-          if (coefficientOfVariation < 0.3) {
-            // Countries are very similar - need strong reverse log to separate them (2.0-2.8)
-            baseExponent = 2.0 + coefficientOfVariation * 2.7;
-          } else if (coefficientOfVariation < 0.6) {
-            // Moderate diversity - strong reverse log for clear hierarchy (2.8-3.6)
-            baseExponent = 2.8 + (coefficientOfVariation - 0.3) * 2.7;
+          // ADAPTIVE EXPONENT CALCULATION
+          // Start with neutral (linear = 1.0)
+          let exponent = 1.0;
+          
+          // PHASE 1: Determine base tendency
+          if (coefficientOfVariation < 0.4) {
+            // Low variation - countries are similar, need reverse-log to create outliers
+            exponent = 2.0 + (0.4 - coefficientOfVariation) * 2.5; // 2.0 to 3.0
+          } else if (coefficientOfVariation > 1.2) {
+            // High variation - likely has natural outliers, may need compression
+            exponent = 1.0 - (coefficientOfVariation - 1.2) * 0.3; // 1.0 to 0.4
+            exponent = Math.max(0.4, exponent); // Don't go too extreme
           } else {
-            // High diversity - very strong reverse log for dramatic winners (3.6-4.5)
-            baseExponent = 3.6 + Math.min(0.3, coefficientOfVariation - 0.6) * 3.0;
+            // Moderate variation - balanced approach
+            exponent = 1.0 + (0.8 - Math.abs(coefficientOfVariation - 0.8)) * 1.5; // 1.0 to 2.2
           }
           
-          // Adjust based on natural spread - more aggressive
-          if (naturalSpread < 0.2) {
-            // Data is compressed at the top - need much more separation
-            baseExponent *= 1.6;
-          } else if (naturalSpread > 0.5) {
-            // Data already well spread - still need reverse log effect
-            baseExponent *= 1.1;
+          // PHASE 2: Adjust based on outlier intensity
+          if (maxToP95Ratio > 3.0) {
+            // Extreme outliers detected - shift toward logarithmic compression
+            const outlierIntensity = Math.min(1.0, (maxToP95Ratio - 3.0) / 7.0); // 0-1 scale
+            exponent = exponent * (1.0 - outlierIntensity * 0.6); // Reduce exponent by up to 60%
           }
           
-          // Special handling for outliers
-          if (isOutlier) {
-            // Outliers get moderate scaling but still dramatic
-            baseExponent = Math.max(2.5, Math.min(baseExponent, 3.5));
+          if (topCompression > 0.3) {
+            // Top values take up too much range - compress them
+            const compressionFactor = Math.min(1.0, (topCompression - 0.3) / 0.4); // 0-1 scale
+            exponent = exponent * (1.0 - compressionFactor * 0.4); // Reduce exponent by up to 40%
           }
           
-          // Ensure strong reverse logarithmic bounds
-          baseExponent = Math.max(2.0, Math.min(5.0, baseExponent));
-          
-          // Apply the natural reverse logarithmic scaling
-          if (normalized > 0) {
-            normalized = Math.pow(normalized, baseExponent);
+          // PHASE 3: Fine-tune based on distribution shape
+          if (p99ToP90Ratio > 2.0) {
+            // Very steep increase in top 10% - needs compression
+            exponent *= 0.8;
           }
           
-          // Additional smoothing for very high values to prevent clustering at max
-          if (normalized > 0.85) {
-            // Gentle compression of the very top to spread them out
-            const topCompression = (normalized - 0.85) / 0.15; // 0-1 for top 15%
-            const compressedTop = 0.85 + (topCompression * 0.15 * 0.7); // Compress top 15% to 10.5%
-            normalized = compressedTop;
+          if (maxToP90Ratio > 5.0) {
+            // Extreme single outlier - strong compression needed
+            exponent = Math.min(exponent, 0.6);
+          }
+          
+          // PHASE 4: Ensure reasonable bounds and smooth transitions
+          if (exponent > 1.0) {
+            // Reverse logarithmic mode (creates outliers)
+            exponent = Math.max(1.1, Math.min(3.5, exponent));
+          } else {
+            // Regular logarithmic mode (compresses outliers)
+            exponent = Math.max(0.3, Math.min(0.95, exponent));
+          }
+          
+          // PHASE 5: Apply the adaptive logarithmic scaling
+          normalized = Math.pow(normalized, exponent);
+          
+          // PHASE 6: Final smoothing to prevent extreme clustering
+          if (exponent > 1.0 && normalized > 0.9) {
+            // In reverse-log mode, gently compress the very top
+            const topPortion = (normalized - 0.9) / 0.1;
+            normalized = 0.9 + (topPortion * 0.1 * 0.85);
+          } else if (exponent < 1.0 && normalized < 0.1) {
+            // In log mode, lift the very bottom slightly
+            const bottomPortion = normalized / 0.1;
+            normalized = bottomPortion * 0.15;
           }
         }
         
