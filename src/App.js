@@ -1711,24 +1711,32 @@ const GlobeWrapper = ({
 
     return `
       <div style="
-        background: rgba(40, 40, 40, 0.95); 
+        background: transparent;
         color: white;
-        clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
         position: relative;
         width: ${width}px;
         height: ${totalHeight}px;
         padding: 16px 20px;
         text-align: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         line-height: 1.3;
         overflow: visible;
-        border: 2px solid rgba(255, 255, 255, 0.2);
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
       ">
+        <div style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(40, 40, 40, 0.95);
+          clip-path: polygon(50% 0%, 86.6% 25%, 86.6% 75%, 50% 100%, 13.4% 75%, 13.4% 25%);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+          z-index: -1;
+        "></div>
         <div style="
           font-weight: bold; 
           font-size: 13px; 
@@ -1830,7 +1838,7 @@ const GlobeWrapper = ({
         position: 'absolute',
         top: '10px',
         left: '10px',
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: 'transparent',
         color: 'white',
         padding: '10px',
         borderRadius: '5px',
@@ -1994,7 +2002,7 @@ const GlobeWrapper = ({
         position: 'absolute',
         top: '10px',
         right: '10px',
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: 'transparent',
         color: 'white',
         padding: '10px',
         borderRadius: '5px',
@@ -2139,6 +2147,19 @@ function App() {
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+          }
+          
+          /* Remove ALL default tooltip backgrounds from react-globe.gl */
+          .scene-tooltip,
+          .graph-tooltip,
+          div[class*="tooltip"],
+          div[style*="position: absolute"][style*="pointer-events: none"] {
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            backdrop-filter: none !important;
           }
         `}
       </style>
