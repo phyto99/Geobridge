@@ -98,6 +98,56 @@ const createPolygonData = (countries) => {
   return [...surfaceOutlines, ...elevatedCountries];
 };
 
+// Manual region boundary generator using REGIONS object
+const createManualRegionBoundaries = (countries) => {
+  const boundaries = [];
+
+  // Create boundaries based on manual REGIONS object
+  const regionEntries = Object.entries(REGIONS);
+
+  for (let i = 0; i < regionEntries.length; i++) {
+    for (let j = i + 1; j < regionEntries.length; j++) {
+      const [region1Name, region1Countries] = regionEntries[i];
+      const [region2Name, region2Countries] = regionEntries[j];
+
+      // Find countries from the data that match our manual regions
+      const region1Features = countries.filter(country => {
+        const code = getCountryCode(country);
+        return region1Countries.includes(code);
+      });
+
+      const region2Features = countries.filter(country => {
+        const code = getCountryCode(country);
+        return region2Countries.includes(code);
+      });
+
+      // Find shared boundaries between regions
+      region1Features.forEach(country1 => {
+        region2Features.forEach(country2 => {
+          const coords1 = extractCoordinates(country1.geometry);
+          const coords2 = extractCoordinates(country2.geometry);
+          const sharedBoundary = findSharedBoundary(coords1, coords2);
+
+          if (sharedBoundary.length >= 2) {
+            boundaries.push({
+              coordinates: sharedBoundary,
+              regions: [region1Name, region2Name],
+              countries: [
+                getCountryCode(country1),
+                getCountryCode(country2)
+              ],
+              id: `boundary_${region1Name}_${region2Name}_${boundaries.length}`,
+              type: 'manual_boundary'
+            });
+          }
+        });
+      });
+    }
+  }
+
+  return boundaries;
+};
+
 // Data-driven region boundary generator using GeoJSON properties
 const createDataDrivenRegionBoundaries = (countries) => {
   const boundaries = [];
@@ -109,6 +159,9 @@ const createDataDrivenRegionBoundaries = (countries) => {
     countries.forEach(country => {
       const continent = country.properties.CONTINENT || 'Unknown';
       const subregion = country.properties.SUBREGION || country.properties.REGION_UN || 'Unknown';
+      const countryCode = getCountryCode(country);
+
+
 
       // Create a more natural regional grouping
       let regionKey;
@@ -122,11 +175,8 @@ const createDataDrivenRegionBoundaries = (countries) => {
         // Use detailed Asian subregions
         regionKey = `asia_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
       } else if (continent === 'North America') {
-        // Special case for Mexico - include it in North America region
-        const countryCode = getCountryCode(country);
-        if (countryCode === 'MX') {
-          regionKey = 'north_america';
-        } else if (subregion === 'Northern America') {
+        // Group North American countries by subregion
+        if (subregion === 'Northern America') {
           regionKey = 'north_america';
         } else {
           regionKey = 'central_america_caribbean';
@@ -340,16 +390,16 @@ const fetchOWIDData = async (dataset) => {
     const csvText = await response.text();
     const lines = csvText.split('\n');
     const headers = lines[0].split(',');
-    
+
     const result = {};
     const currentYear = new Date().getFullYear();
-    
+
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',');
       if (values.length >= 3) {
         const iso_code = values[0]?.replace(/"/g, '');
         const year = parseInt(values[2]);
-        
+
         // Get most recent data (within last 5 years)
         if (iso_code && year >= currentYear - 5) {
           if (!result[iso_code] || year > result[iso_code].year) {
@@ -370,7 +420,7 @@ const fetchRestCountries = async () => {
     const response = await fetch('https://restcountries.com/v3.1/all?fields=cca2,area,borders', { mode: 'cors' });
     const countries = await response.json();
     const result = {};
-    
+
     countries.forEach(country => {
       if (country.cca2) {
         result[country.cca2] = {
@@ -403,7 +453,7 @@ const initializeGlobalData = async () => {
   }
 
   console.log('Fetching global datasets...');
-  
+
   // Fetch World Bank indicators
   const wbIndicators = {
     'AG.LND.FRST.ZS': 'forest_area_pct',
@@ -570,7 +620,7 @@ const AVAILABLE_DATASETS = {
     unit: '%',
     format: (val) => `${Math.round(val * 10) / 10}%`
   },
-  
+
   co2_emissions: {
     id: 'co2_emissions',
     name: 'CO2 Emissions (t/capita)',
@@ -585,7 +635,7 @@ const AVAILABLE_DATASETS = {
     unit: 't/capita',
     format: (val) => `${Math.round(val * 10) / 10}t`
   },
-  
+
   urban_population: {
     id: 'urban_population',
     name: 'Urban Population (%)',
@@ -598,7 +648,7 @@ const AVAILABLE_DATASETS = {
     unit: '%',
     format: (val) => `${Math.round(val * 10) / 10}%`
   },
-  
+
   internet_users: {
     id: 'internet_users',
     name: 'Internet Users (%)',
@@ -611,7 +661,7 @@ const AVAILABLE_DATASETS = {
     unit: '%',
     format: (val) => `${Math.round(val * 10) / 10}%`
   },
-  
+
   education_expenditure: {
     id: 'education_expenditure',
     name: 'Education Spending (% GDP)',
@@ -626,7 +676,7 @@ const AVAILABLE_DATASETS = {
     unit: '% GDP',
     format: (val) => `${Math.round(val * 10) / 10}%`
   },
-  
+
   renewable_electricity: {
     id: 'renewable_electricity',
     name: 'Renewable Electricity (%)',
@@ -641,7 +691,7 @@ const AVAILABLE_DATASETS = {
     unit: '%',
     format: (val) => `${Math.round(val * 10) / 10}%`
   },
-  
+
   life_expectancy: {
     id: 'life_expectancy',
     name: 'Life Expectancy',
@@ -656,7 +706,7 @@ const AVAILABLE_DATASETS = {
     unit: 'years',
     format: (val) => `${Math.round(val * 10) / 10} years`
   },
-  
+
   gdp_growth: {
     id: 'gdp_growth',
     name: 'GDP Growth Rate (%)',
@@ -671,7 +721,7 @@ const AVAILABLE_DATASETS = {
     unit: '%',
     format: (val) => `${Math.round(val * 100) / 100}%`
   },
-  
+
   unemployment: {
     id: 'unemployment',
     name: 'Unemployment Rate (%)',
@@ -686,7 +736,7 @@ const AVAILABLE_DATASETS = {
     unit: '%',
     format: (val) => `${Math.round(val * 10) / 10}%`
   },
-  
+
   exports_gdp: {
     id: 'exports_gdp',
     name: 'Exports (% GDP)',
@@ -701,7 +751,7 @@ const AVAILABLE_DATASETS = {
     unit: '% GDP',
     format: (val) => `${Math.round(val * 10) / 10}%`
   },
-  
+
   military_expenditure: {
     id: 'military_expenditure',
     name: 'Military Spending (% GDP)',
@@ -730,7 +780,7 @@ const AVAILABLE_DATASETS = {
     unit: 'people/km²',
     format: (val) => `${Math.round(val)} people/km²`
   },
-  
+
   gdp_per_capita: {
     id: 'gdp_per_capita',
     name: 'GDP per Capita',
@@ -743,7 +793,7 @@ const AVAILABLE_DATASETS = {
     unit: 'USD',
     format: (val) => `$${Math.round(val).toLocaleString()}`
   },
-  
+
   // Our World in Data datasets - using realistic calculations based on country data
   // Economic Indicators
   economic_complexity: {
@@ -889,7 +939,7 @@ const AVAILABLE_DATASETS = {
     unit: '%',
     format: (val) => `${Math.round(val)}%`
   },
-  
+
   // FAOSTAT datasets - based on geographic and economic factors
   coffee_production: {
     id: 'coffee_production',
@@ -901,10 +951,10 @@ const AVAILABLE_DATASETS = {
       // Major coffee producers - EXACT DATA ONLY
       const majorProducers = { 'BR': 3000000, 'VN': 1800000, 'CO': 800000, 'ID': 700000, 'ET': 400000, 'HN': 350000, 'IN': 300000, 'UG': 280000, 'MX': 250000, 'GT': 200000 };
       if (majorProducers[code]) return majorProducers[code];
-      
+
       // NO DATA AVAILABLE - DO NOT ESTIMATE
       return null;
-      
+
       return 0;
     },
     unit: 'tonnes',
@@ -926,7 +976,7 @@ const AVAILABLE_DATASETS = {
     unit: 'index',
     format: (val) => `${Math.round(val)}`
   },
-  
+
   // World Bank datasets
   road_density: {
     id: 'road_density',
@@ -958,7 +1008,7 @@ const AVAILABLE_DATASETS = {
     unit: '%',
     format: (val) => `${Math.round(val)}%`
   },
-  
+
   // UN Data datasets
   industrial_production: {
     id: 'industrial_production',
@@ -985,14 +1035,14 @@ const AVAILABLE_DATASETS = {
       // Major tourist destinations - EXACT DATA ONLY
       const touristHotspots = { 'FR': 90, 'ES': 85, 'US': 80, 'CN': 65, 'IT': 65, 'TR': 50, 'MX': 45, 'TH': 40, 'DE': 40, 'GB': 38 };
       if (touristHotspots[code]) return touristHotspots[code];
-      
+
       // NO DATA AVAILABLE - DO NOT ESTIMATE
       return null;
     },
     unit: 'M',
     format: (val) => `${Math.round(val * 10) / 10}M`
   },
-  
+
   // Energy Institute datasets
   oil_production: {
     id: 'oil_production',
@@ -1003,7 +1053,7 @@ const AVAILABLE_DATASETS = {
       // Major oil producers (thousands of barrels per day) - EXACT DATA ONLY
       const oilProducers = { 'US': 12000, 'RU': 11000, 'SA': 10000, 'CA': 5500, 'IQ': 4500, 'CN': 4000, 'AE': 3500, 'BR': 3000, 'KW': 2700, 'IR': 2500, 'NO': 2000, 'MX': 1800, 'KZ': 1800, 'NG': 1700, 'QA': 1500 };
       if (oilProducers[code]) return oilProducers[code] * 1000;
-      
+
       // NO DATA AVAILABLE - DO NOT ESTIMATE
       return null;
     },
@@ -1026,7 +1076,7 @@ const AVAILABLE_DATASETS = {
     unit: 'TWh',
     format: (val) => `${Math.round(val)} TWh`
   },
-  
+
   // USGS Mineral Resources datasets
   gold_production: {
     id: 'gold_production',
@@ -1037,7 +1087,7 @@ const AVAILABLE_DATASETS = {
       // Major gold producers - EXACT DATA ONLY
       const goldProducers = { 'CN': 380, 'AU': 330, 'RU': 300, 'US': 200, 'CA': 180, 'PE': 140, 'GH': 130, 'ZA': 120, 'MX': 110, 'UZ': 100 };
       if (goldProducers[code]) return goldProducers[code];
-      
+
       // NO DATA AVAILABLE - DO NOT ESTIMATE
       return null;
     },
@@ -1246,7 +1296,7 @@ const HEIGHT_GETTERS = Object.fromEntries(
   Object.entries(AVAILABLE_DATASETS)
     .filter(([key, dataset]) => !dataset.disabled) // Skip disabled datasets
     .map(([key, dataset]) => [
-      key, 
+      key,
       (feat) => {
         try {
           const value = dataset.getter(feat);
@@ -1267,7 +1317,9 @@ const GlobeWrapper = ({
   playerCountries = {},
   teamColors = {},
   selectedDatasets = [],
-  dataLoading = false
+  dataLoading = false,
+  useDataDrivenRegions = false,
+  setUseDataDrivenRegions
 }) => {
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
@@ -1278,36 +1330,34 @@ const GlobeWrapper = ({
   const getCountryRegion = useCallback((country) => {
     const countryCode = getCountryCode(country);
 
-    // First try manual mapping
-    const manualRegion = REGION_MAPPING[countryCode];
-    if (manualRegion && manualRegion !== 'n/a') {
-      return manualRegion;
-    }
+    if (useDataDrivenRegions) {
+      // Use data-driven regions
+      const continent = country.properties?.CONTINENT || 'Unknown';
+      const subregion = country.properties?.SUBREGION || country.properties?.REGION_UN || 'Unknown';
 
-    // Fallback to data-driven region
-    const continent = country.properties?.CONTINENT || 'Unknown';
-    const subregion = country.properties?.SUBREGION || country.properties?.REGION_UN || 'Unknown';
 
-    if (continent === 'Europe') {
-      return `europe_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
-    } else if (continent === 'Africa') {
-      return `africa_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
-    } else if (continent === 'Asia') {
-      return `asia_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
-    } else if (continent === 'North America') {
-      // Special case for Mexico - include it in North America region
-      if (countryCode === 'MX') {
-        return 'north_america';
+
+      if (continent === 'Europe') {
+        return `europe_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+      } else if (continent === 'Africa') {
+        return `africa_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+      } else if (continent === 'Asia') {
+        return `asia_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
+      } else if (continent === 'North America') {
+        return subregion === 'Northern America' ? 'north_america' : 'central_america_caribbean';
+      } else if (continent === 'South America') {
+        return 'south_america';
+      } else if (continent === 'Oceania') {
+        return `oceania_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
       }
-      return subregion === 'Northern America' ? 'north_america' : 'central_america_caribbean';
-    } else if (continent === 'South America') {
-      return 'south_america';
-    } else if (continent === 'Oceania') {
-      return `oceania_${subregion}`.toLowerCase().replace(/[\s&]+/g, '_');
-    }
 
-    return continent.toLowerCase().replace(/[\s&]+/g, '_');
-  }, []);
+      return continent.toLowerCase().replace(/[\s&]+/g, '_');
+    } else {
+      // Use manual regions
+      const manualRegion = REGION_MAPPING[countryCode];
+      return manualRegion || 'unknown';
+    }
+  }, [useDataDrivenRegions]);
 
   // Memoized polygon data
   const polygonData = useMemo(() =>
@@ -1320,35 +1370,35 @@ const GlobeWrapper = ({
     if (!countries.features.length || heightFilter === 'none') {
       return { max: 1, min: 0, mean: 0.5, median: 0.5, values: [], adjustedMax: 1, outliers: [] };
     }
-    
+
     const heightGetter = HEIGHT_GETTERS[heightFilter];
     const values = countries.features.map(heightGetter).filter(v => v > 0).sort((a, b) => a - b);
-    
+
     if (values.length === 0) {
       return { max: 1, min: 0, mean: 0.5, median: 0.5, values: [], adjustedMax: 1, outliers: [] };
     }
-    
+
     const max = Math.max(...values);
     const min = Math.min(...values);
     const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-    const median = values.length % 2 === 0 
+    const median = values.length % 2 === 0
       ? (values[Math.floor(values.length / 2) - 1] + values[Math.floor(values.length / 2)]) / 2
       : values[Math.floor(values.length / 2)];
-    
+
     // Outlier detection using IQR method and extreme ratio analysis
     const q1 = values[Math.floor(values.length * 0.25)];
     const q3 = values[Math.floor(values.length * 0.75)];
     const p95 = values[Math.floor(values.length * 0.95)];
     const p99 = values[Math.floor(values.length * 0.99)];
-    
+
     const iqr = q3 - q1;
     const outlierThreshold = q3 + (iqr * 2.5); // More aggressive than standard 1.5
-    
+
     // Check if max value is crushing others
     const maxToP95Ratio = max / Math.max(p95, 1);
     const maxToMeanRatio = max / Math.max(mean, 1);
     const maxToMedianRatio = max / Math.max(median, 1);
-    
+
     // Detect extreme outliers that crush the visualization
     const isExtremeCrusher = (
       maxToP95Ratio > 3.0 ||  // Max is 3x larger than 95th percentile
@@ -1356,31 +1406,31 @@ const GlobeWrapper = ({
       maxToMedianRatio > 10.0 || // Max is 10x larger than median
       max > outlierThreshold    // Standard IQR outlier
     );
-    
+
     let adjustedMax = max;
     let outliers = [];
-    
+
     if (isExtremeCrusher) {
       // Find all extreme outliers
-      outliers = values.filter(v => 
-        v > outlierThreshold || 
+      outliers = values.filter(v =>
+        v > outlierThreshold ||
         v / Math.max(p95, 1) > 2.5 ||
         v / Math.max(mean, 1) > 6.0
       );
-      
+
       // Set adjusted max to a more reasonable value
       // Use the higher of: 95th percentile * 1.5, or mean * 3, or median * 4
       const option1 = p95 * 1.5;
       const option2 = mean * 3.0;
       const option3 = median * 4.0;
-      
+
       adjustedMax = Math.max(option1, option2, option3);
-      
+
       // Ensure adjusted max is reasonable but not too low
       adjustedMax = Math.max(adjustedMax, max * 0.3); // At least 30% of original max
       adjustedMax = Math.min(adjustedMax, max * 0.8); // At most 80% of original max
     }
-    
+
     return { max, min, mean, median, values, adjustedMax, outliers };
   }, [countries.features, heightFilter]);
 
@@ -1411,10 +1461,6 @@ const GlobeWrapper = ({
         );
 
         setCountries(fixedData);
-
-        // Create data-driven region boundaries
-        const boundaries = createDataDrivenRegionBoundaries(withRegionsOnly);
-        setRegionBoundaries(boundaries);
       })
       .catch(err => {
         if (mounted) {
@@ -1425,6 +1471,21 @@ const GlobeWrapper = ({
 
     return () => { mounted = false; };
   }, []);
+
+  // Update region boundaries when data-driven mode changes
+  useEffect(() => {
+    if (countries.features && countries.features.length > 0) {
+      const withRegionsOnly = countries.features.filter(f => {
+        const code = getCountryCode(f);
+        return REGION_MAPPING[code]; // Only show countries that have a region assigned
+      });
+
+      const boundaries = useDataDrivenRegions
+        ? createDataDrivenRegionBoundaries(withRegionsOnly)
+        : createManualRegionBoundaries(withRegionsOnly);
+      setRegionBoundaries(boundaries);
+    }
+  }, [useDataDrivenRegions, countries.features]);
 
   // Optimized height function with improved statistical scaling
   const getPolygonHeight = useCallback((country) => {
@@ -1445,7 +1506,7 @@ const GlobeWrapper = ({
         // Use adjusted max for normalization, but handle outliers specially
         const workingMax = adjustedMax;
         const range = workingMax - min;
-        
+
         let normalized;
         if (isOutlier && value > workingMax) {
           // Outlier exceeds adjusted max - let it go beyond normal height limits
@@ -1454,11 +1515,11 @@ const GlobeWrapper = ({
           // Normal normalization using adjusted max
           normalized = Math.min(1.0, (value - min) / range);
         }
-        
+
         // Apply intelligent scaling based on dataset type and data distribution
         const dataset = AVAILABLE_DATASETS[heightFilter];
         const isBuiltIn = ['gdp', 'population', 'area', 'neighbors'].includes(heightFilter);
-        
+
         if (isBuiltIn) {
           // Built-in datasets: use different scaling for each
           if (heightFilter === 'gdp') {
@@ -1478,30 +1539,30 @@ const GlobeWrapper = ({
           // ADAPTIVE LOGARITHMIC SYSTEM - transitions between reverse-log and regular-log
           const { values } = heightStats;
           const sortedValues = [...values].sort((a, b) => a - b);
-          
+
           // Calculate distribution characteristics
           const stdDev = Math.sqrt(values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length);
           const coefficientOfVariation = stdDev / Math.max(mean, 0.001);
-          
+
           // Key percentiles for outlier detection
           const p75 = sortedValues[Math.floor(sortedValues.length * 0.75)];
           const p90 = sortedValues[Math.floor(sortedValues.length * 0.90)];
           const p95 = sortedValues[Math.floor(sortedValues.length * 0.95)];
           const p99 = sortedValues[Math.floor(sortedValues.length * 0.99)];
-          
+
           // OUTLIER INTENSITY ANALYSIS
           // Calculate how extreme the outliers are
           const maxToP95Ratio = max / Math.max(p95, 0.001);
           const maxToP90Ratio = max / Math.max(p90, 0.001);
           const p99ToP90Ratio = p99 / Math.max(p90, 0.001);
-          
+
           // Calculate top compression (how much of the range is taken by top 5%)
           const topCompression = (max - p95) / Math.max(max - min, 0.001);
-          
+
           // ADAPTIVE EXPONENT CALCULATION
           // Start with neutral (linear = 1.0)
           let exponent = 1.0;
-          
+
           // PHASE 1: Determine base tendency
           if (coefficientOfVariation < 0.4) {
             // Low variation - countries are similar, need reverse-log to create outliers
@@ -1514,31 +1575,31 @@ const GlobeWrapper = ({
             // Moderate variation - balanced approach
             exponent = 1.0 + (0.8 - Math.abs(coefficientOfVariation - 0.8)) * 1.5; // 1.0 to 2.2
           }
-          
+
           // PHASE 2: Adjust based on outlier intensity
           if (maxToP95Ratio > 3.0) {
             // Extreme outliers detected - shift toward logarithmic compression
             const outlierIntensity = Math.min(1.0, (maxToP95Ratio - 3.0) / 7.0); // 0-1 scale
             exponent = exponent * (1.0 - outlierIntensity * 0.6); // Reduce exponent by up to 60%
           }
-          
+
           if (topCompression > 0.3) {
             // Top values take up too much range - compress them
             const compressionFactor = Math.min(1.0, (topCompression - 0.3) / 0.4); // 0-1 scale
             exponent = exponent * (1.0 - compressionFactor * 0.4); // Reduce exponent by up to 40%
           }
-          
+
           // PHASE 3: Fine-tune based on distribution shape
           if (p99ToP90Ratio > 2.0) {
             // Very steep increase in top 10% - needs compression
             exponent *= 0.8;
           }
-          
+
           if (maxToP90Ratio > 5.0) {
             // Extreme single outlier - strong compression needed
             exponent = Math.min(exponent, 0.6);
           }
-          
+
           // PHASE 4: Ensure reasonable bounds and smooth transitions
           if (exponent > 1.0) {
             // Reverse logarithmic mode (creates outliers)
@@ -1547,10 +1608,10 @@ const GlobeWrapper = ({
             // Regular logarithmic mode (compresses outliers)
             exponent = Math.max(0.3, Math.min(0.95, exponent));
           }
-          
+
           // PHASE 5: Apply the adaptive logarithmic scaling
           normalized = Math.pow(normalized, exponent);
-          
+
           // PHASE 6: Final smoothing to prevent extreme clustering
           if (exponent > 1.0 && normalized > 0.9) {
             // In reverse-log mode, gently compress the very top
@@ -1562,10 +1623,10 @@ const GlobeWrapper = ({
             normalized = bottomPortion * 0.15;
           }
         }
-        
+
         // Scale to height range - max should match cyan atmosphere (~0.5 altitude)
         let heightMultiplier = 0.25; // Base multiplier (reduced from 0.4)
-        
+
         // Adjust multiplier based on data type and outlier status
         if (isBuiltIn) {
           heightMultiplier = 0.3; // Built-in data - max height ~0.3 (within atmosphere)
@@ -1574,7 +1635,7 @@ const GlobeWrapper = ({
         } else if (dataset?.category === 'USGS Minerals' || dataset?.category === 'Energy Institute') {
           heightMultiplier = 0.28; // Resource data
         }
-        
+
         // Handle outliers that exceed normal bounds
         if (isOutlier && normalized > 1.0) {
           // Outliers can exceed normal height limits for dramatic effect
@@ -1685,34 +1746,34 @@ const GlobeWrapper = ({
     const name = d.NAME || d.ADMIN || 'Unknown';
     const code = getCountryCode({ properties: d });
     const region = REGION_MAPPING[code] || 'n/a';
-    
+
     // Generate data rows for ALL selected datasets (not limited to 6)
     const dataRows = selectedDatasets.map(datasetId => {
       const dataset = AVAILABLE_DATASETS[datasetId];
       if (!dataset) return '';
-      
+
       // Handle disabled datasets
       if (dataset.disabled) {
-        const displayName = dataset.name.length > 20 
-          ? dataset.name.substring(0, 17) + '...' 
+        const displayName = dataset.name.length > 20
+          ? dataset.name.substring(0, 17) + '...'
           : dataset.name;
         return `<div style="font-size: 10px; margin: 1px 0; color: #ff6b6b; text-decoration: line-through; text-align: center;">❌ ${displayName}: Disabled</div>`;
       }
-      
+
       try {
         const value = dataset.getter({ properties: d });
         const formattedValue = dataset.format(value);
-        
+
         // Use a shorter version of the name for display
-        const displayName = dataset.name.length > 20 
-          ? dataset.name.substring(0, 17) + '...' 
+        const displayName = dataset.name.length > 20
+          ? dataset.name.substring(0, 17) + '...'
           : dataset.name;
-        
+
         // Check if value is 0 or very low and mark as potentially problematic
         if (value === 0 || (typeof value === 'number' && value < 0.001)) {
-          return `<div style="font-size: 10px; margin: 1px 0; color: #ffaa00; text-decoration: line-through; text-align: center;">⚠️ ${displayName}: ${formattedValue}</div>`;
+          return `<div style="font-size: 10px; margin: 1px 0; text-align: center;"><span style="color: #CD5C5C;">${displayName}:</span> <span style="color: white;">${formattedValue}</span></div>`;
         }
-        
+
         return `<div style="font-size: 10px; margin: 1px 0; text-align: center;"><span style="color: #666666;">${displayName}:</span> <span style="color: white;">${formattedValue}</span></div>`;
       } catch (error) {
         console.warn(`Error getting data for ${datasetId}:`, error);
@@ -1728,7 +1789,7 @@ const GlobeWrapper = ({
     const minContentHeight = titleHeight + regionHeight + padding;
     const contentHeight = selectedDatasets.length * rowHeight;
     const totalHeight = Math.max(minContentHeight + contentHeight, 140);
-    
+
     // Hexagon should maintain perfect equilateral proportions
     // For the CSS hexagon clip-path to look equilateral, width should be slightly larger than height
     // Based on the original working ratio of ~0.87, but allowing unlimited scaling
@@ -1810,7 +1871,7 @@ const GlobeWrapper = ({
   }, [selectedDatasets]);
 
   // Height filter buttons data - now dynamic based on selected datasets
-  const heightFilterButtons = useMemo(() => 
+  const heightFilterButtons = useMemo(() =>
     selectedDatasets.map(datasetId => ({
       key: datasetId,
       label: AVAILABLE_DATASETS[datasetId]?.name?.split(' ')[0] || datasetId
@@ -1824,14 +1885,66 @@ const GlobeWrapper = ({
     player2: false
   });
 
+  // Separate state for visual display to avoid triggering rescind logic
+  const [allianceDisplayStates, setAllianceDisplayStates] = useState({
+    player1: false,
+    player2: false
+  });
+
+  // State for alliance sent messages
+  const [allianceSentMessages, setAllianceSentMessages] = useState([]);
+
   // Add this handler with your other functions:
   const handleAllianceAction = (playerId, action) => {
     // Only respond to word buttons (SEND/RESCIND), ignore player name buttons
     if (action === 'send' || action === 'rescind') {
+      const wasAllianceSent = allianceStates[playerId];
+
       setAllianceStates(prev => ({
         ...prev,
         [playerId]: !prev[playerId] // Simply toggle the state
       }));
+
+      // Handle display state separately for send vs rescind
+      if (action === 'send' && !wasAllianceSent) {
+        // Show the message immediately when sending
+        setAllianceDisplayStates(prev => ({
+          ...prev,
+          [playerId]: true
+        }));
+
+        // Auto-fade display state after 5 seconds (without triggering rescind logic)
+        setTimeout(() => {
+          // Trigger fade-out transition
+          setAllianceDisplayStates(prev => ({
+            ...prev,
+            [playerId]: false
+          }));
+        }, 5000);
+      } else if (action === 'rescind' && wasAllianceSent) {
+        // Hide the message immediately when rescinding
+        setAllianceDisplayStates(prev => ({
+          ...prev,
+          [playerId]: false
+        }));
+      }
+
+      // Show "Alliance Sent!" message when sending an alliance
+      if (action === 'send' && !wasAllianceSent) {
+        const messageId = Date.now();
+        const playerIndex = Object.keys(allianceStates).indexOf(playerId);
+
+        setAllianceSentMessages(prev => [...prev, {
+          id: messageId,
+          playerId: playerId,
+          playerIndex: playerIndex
+        }]);
+
+        // Remove message after animation completes
+        setTimeout(() => {
+          setAllianceSentMessages(prev => prev.filter(msg => msg.id !== messageId));
+        }, 2000);
+      }
     }
   };
 
@@ -1842,6 +1955,8 @@ const GlobeWrapper = ({
         globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
         backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
         lineHoverPrecision={0}
+        enablePointerInteraction={true}
+        controls={true}
 
         polygonsData={polygonData}
         polygonAltitude={getPolygonHeight}
@@ -1923,13 +2038,13 @@ const GlobeWrapper = ({
               onClick={() => setHeightFilter(heightFilter === key ? 'none' : key)}
               style={{
                 padding: '5px 6px',
-                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                backgroundColor: 'transparent',
                 color: 'white',
                 border: heightFilter === key ? '2px solid white' : '1px solid rgba(255, 255, 255, 0.5)',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontSize: '14px',
-                fontWeight: heightFilter === key ? 'bold' : 'normal',
+                fontWeight: 'normal',
                 transition: 'all 0.2s ease'
               }}
             >
@@ -1938,35 +2053,78 @@ const GlobeWrapper = ({
           ))}
         </div>
 
-        {/* Alliance Panel */}
+        {/* Alliance Panel with Text */}
         <div style={{
-          width: '380px',
-          backgroundColor: 'black',
-          border: '1px solid white'
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px'
         }}>
+          {/* Alliance Sent Text */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '9px',
+            paddingTop: '35px' // Top border (1px) + Alliance header (24px) + header border (1px) + team sections padding (9px) = 35px
+          }}>
+            {Object.entries(allianceDisplayStates).map(([playerId, isAllianceSent]) => (
+              <div key={playerId} style={{
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                color: 'white',
+                fontSize: '15px',
+                fontWeight: 'normal',
+                opacity: isAllianceSent ? 1 : 0,
+                transition: 'opacity 0.3s ease-out',
+                pointerEvents: isAllianceSent ? 'auto' : 'none'
+              }}>
+                Alliance Sent!
+              </div>
+            ))}
+          </div>
+
+          {/* Alliance Panel */}
+          <div style={{
+            width: '380px',
+            backgroundColor: 'black',
+            border: '1px solid white'
+          }}>
           {/* Alliance Header */}
           <div style={{
             backgroundColor: '#252525',
             color: 'white',
-            padding: '8px',
-            textAlign: 'center',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            borderBottom: '1px solid white'
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '15px',
+            fontWeight: 'normal',
+            borderBottom: '1px solid white',
+            gap: '6px'
           }}>
+            <img
+              src="/alliance.png"
+              alt="Alliance"
+              style={{
+                width: '16px',
+                height: '16px',
+                objectFit: 'contain'
+              }}
+            />
             Alliances
           </div>
 
           {/* Team Sections */}
-          <div style={{ padding: '8px 30px' }}>
-            {Object.entries(teamColors).map(([playerId, color]) => {
+          <div style={{ padding: '9px 30px' }}>
+            {Object.entries(teamColors).map(([playerId, color], index, array) => {
               const playerNumber = playerId.replace('player', '');
               const isAllianceSent = allianceStates[playerId];
+              const isLastItem = index === array.length - 1;
 
               return (
                 <div key={playerId} style={{
-                  marginBottom: '8px',
-                  height: '32px',
+                  marginBottom: isLastItem ? '0px' : '9px',
+                  height: '24px',
                   border: '1px solid white',
                   display: 'flex'
                 }}>
@@ -1976,16 +2134,20 @@ const GlobeWrapper = ({
                       width: '50%',
                       height: '100%',
                       backgroundColor: !isAllianceSent ? 'black' : '#444444',
-                      color: !isAllianceSent ? color : '#888888',
+                      color: !isAllianceSent ? 'white' : '#888888',
                       border: 'none',
                       borderRight: '1px solid white',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
+                      fontSize: '15px',
+                      fontWeight: 'normal',
                       cursor: !isAllianceSent ? 'default' : 'pointer',
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    {!isAllianceSent ? `PLAYER ${playerNumber}` : 'RESCIND'}
+                    {!isAllianceSent ? (
+                      <>
+                        <span style={{ color: color }}>{playerNumber}</span> {color === '#00FFFF' ? 'cyan' : 'magenta'}
+                      </>
+                    ) : 'rescind'}
                   </button>
 
                   <button
@@ -1994,23 +2156,27 @@ const GlobeWrapper = ({
                       width: '50%',
                       height: '100%',
                       backgroundColor: !isAllianceSent ? '#666666' : 'black',
-                      color: !isAllianceSent ? 'white' : color,
+                      color: !isAllianceSent ? 'white' : 'white',
                       border: 'none',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
+                      fontSize: '15px',
+                      fontWeight: 'normal',
                       cursor: !isAllianceSent ? 'pointer' : 'default',
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    {!isAllianceSent ? 'SEND' : `PLAYER ${playerNumber}`}
+                    {!isAllianceSent ? 'send' : (
+                      <>
+                        <span style={{ color: color }}>{playerNumber}</span> {color === '#00FFFF' ? 'cyan' : 'magenta'}
+                      </>
+                    )}
                   </button>
                 </div>
               );
             })}
           </div>
+          </div>
         </div>
       </div>
-
 
       {/* Legend */}
       <div style={{
@@ -2046,8 +2212,8 @@ const GlobeWrapper = ({
           <div>Click: Select country</div>
           {heightFilter !== 'none' && (
             <div style={{ marginTop: '3px', fontStyle: 'italic' }}>
-              {['gdp', 'population', 'area', 'neighbors'].includes(heightFilter) 
-                ? 'Linear/logarithmic scaling' 
+              {['gdp', 'population', 'area', 'neighbors'].includes(heightFilter)
+                ? 'Linear/logarithmic scaling'
                 : 'Reverse logarithmic scaling'}
             </div>
           )}
@@ -2066,22 +2232,23 @@ function App() {
     player1: [],
     player2: []
   });
-  
+
   // Dataset selection state - only include working datasets
   const [selectedDatasets, setSelectedDatasets] = useState([
-    'gdp', 'population', 'area', 'neighbors', 
+    'gdp', 'population', 'area', 'neighbors',
     'forest_area', 'internet_users', 'urban_population', 'military_expenditure'
   ]);
   const [availableDatasets] = useState(AVAILABLE_DATASETS);
   const [dataLoading, setDataLoading] = useState(true);
   const [dataStatus, setDataStatus] = useState('Initializing...');
+  const [useDataDrivenRegions, setUseDataDrivenRegions] = useState(false);
 
   // Initialize global data on component mount
   useEffect(() => {
     const loadGlobalData = async () => {
       setDataLoading(true);
       setDataStatus('Fetching World Bank data...');
-      
+
       try {
         await initializeGlobalData();
         setDataStatus('Data loaded successfully');
@@ -2129,7 +2296,7 @@ function App() {
       console.warn(`Dataset ${datasetId} is disabled: ${dataset.disabledReason}`);
       return; // Don't allow selection of disabled datasets
     }
-    
+
     setSelectedDatasets(prev => {
       if (prev.includes(datasetId)) {
         return prev.filter(id => id !== datasetId);
@@ -2190,6 +2357,18 @@ function App() {
         }}>
           {/* Dataset Selection Dropdown */}
           <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+            {/* Region Mode Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+              <label style={{ color: '#ccc', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={useDataDrivenRegions}
+                  onChange={(e) => setUseDataDrivenRegions(e.target.checked)}
+                  style={{ marginRight: '4px' }}
+                />
+                Use Data-Driven Regions
+              </label>
+            </div>
             <div style={{ position: 'relative' }}>
               <select
                 onChange={(e) => e.target.value && handleDatasetSelect(e.target.value)}
@@ -2208,8 +2387,8 @@ function App() {
                 {Object.entries(datasetsByCategory).map(([category, datasets]) => (
                   <optgroup key={category} label={category}>
                     {datasets.map(dataset => (
-                      <option 
-                        key={dataset.id} 
+                      <option
+                        key={dataset.id}
                         value={dataset.id}
                         disabled={selectedDatasets.includes(dataset.id) || dataset.disabled}
                         style={{
@@ -2276,8 +2455,10 @@ function App() {
             <div style={{ fontSize: '14px', color: '#4CAF50' }}>
               Phase: {gamePhase.replace('_', ' ').toUpperCase()}
             </div>
-            <div style={{ 
-              fontSize: '12px', 
+
+
+            <div style={{
+              fontSize: '12px',
               color: dataLoading ? '#FFA500' : '#4CAF50',
               display: 'flex',
               alignItems: 'center',
@@ -2380,6 +2561,8 @@ function App() {
           teamColors={teamColors}
           selectedDatasets={selectedDatasets}
           dataLoading={dataLoading}
+          useDataDrivenRegions={useDataDrivenRegions}
+          setUseDataDrivenRegions={setUseDataDrivenRegions}
         />
       </main>
     </div>
