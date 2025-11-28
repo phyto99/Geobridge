@@ -1986,19 +1986,149 @@ const GlobeWrapper = ({
         atmosphereAltitude={0.5}
       />
 
-      {/* Status Panel */}
+      {/* Top Left - Phase Image and Label */}
       <div style={{
         position: 'absolute',
-        top: '10px',
-        left: '10px',
-        backgroundColor: 'transparent',
+        top: '20px',
+        left: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '8px',
+        zIndex: 100
+      }}>
+        <img
+          src="/phase.png"
+          alt="Phase"
+          style={{
+            width: '60px',
+            height: '60px',
+            objectFit: 'contain'
+          }}
+        />
+        <div style={{
+          color: 'white',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          textAlign: 'center'
+        }}>
+          {gamePhase === 'country_selection' ? 'Selection' : 
+           gamePhase === 'bidding' ? 'Bidding' : 
+           gamePhase === 'planning' ? 'Planning' :
+           gamePhase === 'play' ? 'Play' : 'Game Over'}
+        </div>
+      </div>
+
+      {/* Left Panel Container - Mode Selector */}
+      <div style={{
+        position: 'absolute',
+        top: '140px',
+        left: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0px',
+        zIndex: 100
+      }}>
+        {/* Mode Selector Panel */}
+        <div style={{
+          width: '380px',
+          backgroundColor: 'black',
+          border: '1px solid white'
+        }}>
+          {/* Team Logos Header */}
+          <div style={{
+            backgroundColor: '#252525',
+            color: 'white',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '15px',
+            fontWeight: 'normal',
+            borderBottom: '1px solid white',
+            gap: '20px'
+          }}>
+            <span style={{ color: '#00FFFF' }}>1</span>
+            <span style={{ color: '#FF00FF' }}>2</span>
+          </div>
+
+          {/* Mode Selection Content */}
+          <div style={{
+            backgroundColor: '#252525',
+            color: 'white',
+            height: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '13px',
+            fontWeight: 'normal',
+            padding: '0 20px'
+          }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <span style={{ color: '#888888' }}>mode</span>
+              <span style={{ color: 'white' }}>area</span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <span style={{ color: '#888888' }}>eclipse</span>
+              <span style={{ color: 'white' }}>Europe</span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <span style={{ color: '#888888' }}>round</span>
+              <span style={{ color: 'white' }}>1/1</span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <span style={{ color: '#888888' }}>bid</span>
+              <span style={{ color: 'white' }}>⚔ 1/1</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Lime Label and Search - Outside the box */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          <div style={{
+            color: '#00FF00',
+            fontSize: '18px',
+            fontWeight: 'normal',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
+          }}>
+            <span>✖</span> LIME
+          </div>
+          <input
+            type="text"
+            placeholder="search country"
+            style={{
+              width: '260px',
+              padding: '3px 8px',
+              backgroundColor: '#2a2a2a',
+              color: '#999999',
+              border: 'none',
+              fontSize: '16px',
+              textAlign: 'left',
+              outline: 'none'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Bottom Left - Status Panel */}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        left: '20px',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
         color: 'white',
         padding: '10px',
         borderRadius: '5px',
-        fontSize: '14px',
+        fontSize: '12px',
         zIndex: 100
       }}>
-        <div><strong>Phase:</strong> {gamePhase.replace('_', ' ').toUpperCase()}</div>
         {currentPlayer !== undefined && gamePhase === 'country_selection' && (
           <div><strong>Current Player:</strong> {currentPlayer + 1}</div>
         )}
@@ -2007,7 +2137,7 @@ const GlobeWrapper = ({
         )}
         <div><strong>Data-Driven Boundaries:</strong> {regionBoundaries.length}</div>
         {hoverD && hoverD.properties && (
-          <div style={{ fontSize: '12px', marginTop: '5px', opacity: 0.8 }}>
+          <div style={{ fontSize: '11px', marginTop: '5px', opacity: 0.8 }}>
             <div><strong>Continent:</strong> {hoverD.properties.CONTINENT}</div>
             <div><strong>Subregion:</strong> {hoverD.properties.SUBREGION}</div>
           </div>
