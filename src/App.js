@@ -1309,6 +1309,215 @@ const HEIGHT_GETTERS = Object.fromEntries(
     ])
 );
 
+// ── Geo SVG helpers ──────────────────────────────────────────────────────────
+
+function getCoordsBBox(features) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const walk = (c) => {
+    if (!Array.isArray(c)) return;
+    if (typeof c[0] === 'number') { minX=Math.min(minX,c[0]); maxX=Math.max(maxX,c[0]); minY=Math.min(minY,c[1]); maxY=Math.max(maxY,c[1]); }
+    else c.forEach(walk);
+  };
+  features.forEach(f => f?.geometry && walk(f.geometry.coordinates));
+  return { minX, minY, maxX, maxY };
+}
+
+function largestPolygonRings(geometry) {
+  if (!geometry) return null;
+  if (geometry.type === 'Polygon') return geometry.coordinates;
+  if (geometry.type === 'MultiPolygon') {
+    let best = null, bestArea = -Infinity;
+    for (const poly of geometry.coordinates) {
+      const ring = poly[0];
+      let area = 0;
+      for (let i = 0; i < ring.length - 1; i++) area += ring[i][0]*ring[i+1][1] - ring[i+1][0]*ring[i][1];
+      const a = Math.abs(area)/2;
+      if (a > bestArea) { bestArea = a; best = poly; }
+    }
+    return best;
+  }
+  return null;
+}
+
+function ringCentroid(ring) {
+  let x = 0, y = 0;
+  for (const p of ring) { x += p[0]; y += p[1]; }
+  return [x / ring.length, y / ring.length];
+}
+
+// Normalise a longitude to be within 180° of a reference meridian.
+// Handles dateline crossing in both directions.
+function normaliseLon(lon, refLon) {
+  while (lon - refLon >  180) lon -= 360;
+  while (refLon - lon >  180) lon += 360;
+  return lon;
+}
+
+// Returns all outer rings of a geometry whose centroid falls within (padded) bbox.
+// Uses bbox.medianLon to normalise dateline-crossing coordinates.
+function ringsInBBox(geometry, bbox, pad = 0.25) {
+  const pw = (bbox.maxX - bbox.minX) * pad;
+  const ph = (bbox.maxY - bbox.minY) * pad;
+  const ref = bbox.medianLon ?? (bbox.minX + bbox.maxX) / 2;
+
+  const outerRings = [];
+  if (geometry?.type === 'Polygon') outerRings.push(geometry.coordinates[0]);
+  else if (geometry?.type === 'MultiPolygon') geometry.coordinates.forEach(p => outerRings.push(p[0]));
+
+  return outerRings.filter(ring => {
+    const [cx, cy] = ringCentroid(ring);
+    const nx = normaliseLon(cx, ref);
+    return nx >= bbox.minX - pw && nx <= bbox.maxX + pw &&
+           cy >= bbox.minY - ph && cy <= bbox.maxY + ph;
+  });
+}
+
+function ringToPath(ring, project, refLon = 0) {
+  return ring.map((p, i) => {
+    const [x, y] = project(normaliseLon(p[0], refLon), p[1]);
+    return `${i===0?'M':'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ') + ' Z';
+}
+
+function makeSvgProjection(bbox, svgSize, padding = 0.06) {
+  const pw = (bbox.maxX - bbox.minX) * padding;
+  const ph = (bbox.maxY - bbox.minY) * padding;
+  const minX = bbox.minX - pw, maxX = bbox.maxX + pw;
+  const minY = bbox.minY - ph, maxY = bbox.maxY + ph;
+  const w = maxX - minX, h = maxY - minY;
+  const scale = Math.min(svgSize / w, svgSize / h) * 0.92;
+  const ox = (svgSize - w * scale) / 2;
+  const oy = (svgSize - h * scale) / 2;
+  return (lon, lat) => [(lon - minX) * scale + ox, (maxY - lat) * scale + oy];
+}
+
+// Russia's GeoJSON CONTINENT is Europe; override to Asia so it groups correctly
+const CONTINENT_OVERRIDES = { RU: 'Asia' };
+
+function getFeatureContinent(f) {
+  const code = f.properties?.ISO_A2 || f.properties?.ADM0_A3?.slice(0, 2);
+  return CONTINENT_OVERRIDES[code] || f.properties?.CONTINENT;
+}
+
+// Continent bbox from largest polygon per country, with dateline-aware clustering.
+// Finds the median longitude across all country centroids, then normalises all
+// coordinates to within 180° of that median so Tonga (-175°) sits next to Fiji
+// instead of pulling the bbox across the entire world.
+function getContinentBBox(continentFeats) {
+  const entries = continentFeats.map(f => {
+    const rings = largestPolygonRings(f.geometry);
+    if (!rings) return null;
+    return { ring: rings[0] };
+  }).filter(Boolean);
+
+  if (!entries.length) return { minX: -180, maxX: 180, minY: -90, maxY: 90, medianLon: 0 };
+
+  // Median centroid longitude (as-is) to seed the cluster reference
+  const rawLons = entries.map(e => ringCentroid(e.ring)[0]).sort((a, b) => a - b);
+  const medianLon = rawLons[Math.floor(rawLons.length / 2)];
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const { ring } of entries) {
+    for (const p of ring) {
+      const nx = normaliseLon(p[0], medianLon);
+      if (nx < minX) minX = nx;
+      if (nx > maxX) maxX = nx;
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
+    }
+  }
+  return { minX, maxX, minY, maxY, medianLon };
+}
+
+// Hex card dimensions — exported for honeycomb layout math
+const HEX_W = 108, HEX_H = 94;
+// Honeycomb packing constants (pointy-top hex geometry)
+const HEX_COL_STEP   = Math.round(HEX_W * 0.732);   // center-to-center horizontal
+const HEX_ROW_STEP   = Math.round(HEX_H * 0.75);     // center-to-center vertical
+const HEX_ODD_OFFSET = Math.round(HEX_COL_STEP / 2); // odd-row horizontal shift
+const HEX_H_OVERLAP  = HEX_W - HEX_COL_STEP;         // negative margin per item in row
+const HEX_V_OVERLAP  = HEX_H - HEX_ROW_STEP;         // negative margin between rows
+
+const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) => {
+  const name = feature.properties?.NAME || feature.properties?.ADMIN || 'Unknown';
+  const continent = getFeatureContinent(feature);
+  const SVG = 62; // fills most of the hex; text is pinned to bottom via flex space-between
+
+  const { continentPath, countryPath, hx, hy } = useMemo(() => {
+    const continentFeats = allFeatures.filter(f => getFeatureContinent(f) === continent);
+    if (!continentFeats.length) return { continentPath: '', countryPath: '', hx: SVG/2, hy: SVG/2 };
+
+    const bbox = getContinentBBox(continentFeats);
+    const project = makeSvgProjection(bbox, SVG);
+
+    const bMinX = bbox.minX;
+
+    const cPath = continentFeats.map(f => {
+      const rings = ringsInBBox(f.geometry, bbox);
+      return rings.map(r => ringToPath(r, project, bMinX)).join(' ');
+    }).join(' ');
+
+    const kRings = ringsInBBox(feature.geometry, bbox);
+    const kPath = kRings.map(r => ringToPath(r, project, bMinX)).join(' ');
+
+    const mainRings = largestPolygonRings(feature.geometry);
+    const mainRing = mainRings ? mainRings[0] : (kRings[0] || null);
+    const [cx, cy] = mainRing
+      ? project(normaliseLon(ringCentroid(mainRing)[0], bMinX), ringCentroid(mainRing)[1])
+      : [SVG/2, SVG/2];
+
+    return { continentPath: cPath, countryPath: kPath, hx: cx, hy: cy };
+  }, [feature, allFeatures, continent]);
+
+  const maskId = `hm-${clipId}`;
+
+  return (
+    <div
+      onClick={onClick}
+      style={{ width: HEX_W, height: HEX_H, position:'relative', cursor:'pointer', userSelect:'none', flexShrink:0 }}
+    >
+      {/* dark hex bg */}
+      <div style={{ position:'absolute', inset:0, background:'#252525',
+        clipPath:'polygon(50% 0%, 86.6% 25%, 86.6% 75%, 50% 100%, 13.4% 75%, 13.4% 25%)' }} />
+      {/* hex content: circle at top, name pinned to bottom — both clipped to hex */}
+      <div style={{
+        position:'absolute', inset:0,
+        clipPath:'polygon(50% 0%, 86.6% 25%, 86.6% 75%, 50% 100%, 13.4% 75%, 13.4% 25%)',
+        display:'flex', flexDirection:'column', alignItems:'center',
+        justifyContent:'space-between',
+        paddingTop: 12, paddingBottom: 10,
+      }}>
+        {/* continent + country mini-map */}
+        <svg width={SVG} height={SVG} viewBox={`0 0 ${SVG} ${SVG}`} style={{ flexShrink:0 }}>
+          <defs>
+            <mask id={maskId}>
+              <circle cx={SVG/2} cy={SVG/2} r={SVG/2} fill="white" />
+            </mask>
+          </defs>
+          <circle cx={SVG/2} cy={SVG/2} r={SVG/2} fill="#3a3a3a" />
+          <g mask={`url(#${maskId})`}>
+            {continentPath && <path d={continentPath} fill="white" fillOpacity="0.7" />}
+            <circle cx={hx} cy={hy} r={13} fill="#555" fillOpacity="0.75" />
+            {countryPath && <path d={countryPath} fill="white" />}
+          </g>
+        </svg>
+        {/* country name pinned to bottom of hex */}
+        <div style={{
+          fontSize:'9px', color:'white', textAlign:'center',
+          fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          lineHeight:1.2, maxWidth: HEX_W * 0.55,
+          overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2,
+          WebkitBoxOrient:'vertical'
+        }}>
+          {name}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const GlobeWrapper = ({
   selectedCountries = [],
   onCountrySelect,
@@ -1328,11 +1537,23 @@ const GlobeWrapper = ({
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
   const [heightFilter, setHeightFilter] = useState('none');
+  const [searchQuery, setSearchQuery] = useState('');
   const [regionBoundaries, setRegionBoundaries] = useState([]);
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [timerCycle, setTimerCycle] = useState(0);
   const autoSelectRef = useRef(null);
   const timerFillRef = useRef(null);
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 1) return [];
+    return countries.features
+      .filter(f => {
+        const n = (f.properties?.NAME || f.properties?.ADMIN || '').toLowerCase();
+        return n.includes(q);
+      })
+      .slice(0, 50);
+  }, [searchQuery, countries.features]);
 
   // Memoized country region lookup with data-driven fallback
   const getCountryRegion = useCallback((country) => {
@@ -2082,20 +2303,13 @@ const GlobeWrapper = ({
             style={{
               width: '100%',
               height: '100%',
-              background: 'linear-gradient(90deg, white, #FF80FF, #0000FF, #80FFFF, white)',
+              background: viewedPlayer !== currentPlayer
+                ? 'rgba(180,180,180,0.45)'
+                : 'linear-gradient(90deg, white, #FF80FF, #0000FF, #80FFFF, white)',
               willChange: 'clip-path',
               transform: 'translateZ(0)'
             }}
           />
-          {viewedPlayer !== currentPlayer && (
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(160,160,160,0.6)',
-              borderRadius: '3px',
-              pointerEvents: 'none'
-            }} />
-          )}
         </div>
 
         {/* Leaderboard — double-click opens scoreboard */}
@@ -2211,12 +2425,7 @@ const GlobeWrapper = ({
         </div>
 
         {/* Lime Label and Search - Outside the box */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '4px'
-        }}>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', position:'relative' }}>
           <div style={{
             color: Object.values(teamColors)[viewedPlayer] || '#00FFFF',
             fontSize: '18px',
@@ -2230,17 +2439,91 @@ const GlobeWrapper = ({
           <input
             type="text"
             placeholder="search country"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
             style={{
               width: '260px',
               padding: '3px 8px',
               backgroundColor: '#2a2a2a',
-              color: '#999999',
+              color: '#ccc',
               border: 'none',
               fontSize: '16px',
               textAlign: 'left',
               outline: 'none'
             }}
           />
+          {/* Search results dropdown */}
+          {searchResults.length > 0 && (() => {
+            // Alternating 3-2-3-2 honeycomb rows; change these to reconfigure the grid
+            const ROW_PATTERN = [3, 2];
+            const rows = [];
+            let idx = 0;
+            while (idx < searchResults.length) {
+              const cols = ROW_PATTERN[rows.length % ROW_PATTERN.length];
+              rows.push(searchResults.slice(idx, idx + cols));
+              idx += cols;
+            }
+            const GAP = 8; // visual gap between hex edges
+            const maxCols = Math.max(...ROW_PATTERN);
+            const colStep = HEX_COL_STEP + GAP;
+            // Derive rowStep so diagonal-neighbor gap equals GAP (not just * 0.5)
+            // tightDiag = actual center-to-center of diagonal neighbors at GAP=0
+            const tightDiag = Math.sqrt((HEX_COL_STEP / 2) ** 2 + HEX_ROW_STEP ** 2);
+            const rowStep = Math.round(Math.sqrt((tightDiag + GAP) ** 2 - (colStep / 2) ** 2));
+            const gridW = maxCols * colStep + HEX_W - colStep;
+            // Explicit height needed so negative-margin rows don't confuse overflow scroll
+            const gridH = rows.length === 0 ? 0
+              : HEX_H + (rows.length - 1) * (HEX_H - (HEX_H - rowStep));
+            return (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                marginTop: '4px',
+                background: 'rgba(20,20,20,0.96)',
+                borderRadius: '8px',
+                padding: '16px 20px 20px',
+                zIndex: 500,
+                maxHeight: '60vh',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                backdropFilter: 'blur(8px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                width: gridW + 40,
+              }}>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', margin:'0 auto', width: gridW, height: gridH }}>
+                  {rows.map((row, ri) => (
+                    <div key={ri} style={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      marginTop: ri === 0 ? 0 : -(HEX_H - rowStep),
+                      marginLeft: ri % 2 === 1 ? colStep / 2 : 0,
+                    }}>
+                      {row.map((f, ci) => (
+                        <div key={f.properties?.ISO_A2 || ci}
+                          style={{ marginLeft: ci === 0 ? 0 : -(HEX_W - colStep) }}>
+                          <CountryHexCard
+                            feature={f}
+                            allFeatures={countries.features}
+                            clipId={`${ri}-${ci}`}
+                            onClick={() => {
+                              const code = getCountryCode(f);
+                              if (code && onCountrySelect && gamePhase === 'country_selection' && viewedPlayer === currentPlayer) {
+                                const taken = Object.values(playerCountries).some(list => list.includes(code));
+                                if (!taken) onCountrySelect(code);
+                              }
+                              setSearchQuery('');
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
