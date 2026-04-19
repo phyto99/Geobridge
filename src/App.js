@@ -1321,13 +1321,16 @@ const GlobeWrapper = ({
   useDataDrivenRegions = false,
   setUseDataDrivenRegions,
   timerDuration = 10,
-  onPlayerChange
+  onPlayerChange,
+  viewedPlayer = 0,
+  onViewedPlayerChange
 }) => {
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
   const [heightFilter, setHeightFilter] = useState('none');
   const [regionBoundaries, setRegionBoundaries] = useState([]);
   const [showScoreboard, setShowScoreboard] = useState(false);
+  const [timerCycle, setTimerCycle] = useState(0);
   const autoSelectRef = useRef(null);
   const timerFillRef = useRef(null);
 
@@ -1736,32 +1739,34 @@ const GlobeWrapper = ({
   // Keep a stable ref so the timeout closure is never stale
   useEffect(() => { autoSelectRef.current = autoSelectCountry; }, [autoSelectCountry]);
 
-  // WAAPI animation — runs off main thread, smooth; single timeout for auto-select logic
+  // WAAPI animation — loops via timerCycle; auto-selects on expiry if player hasn't picked
   useEffect(() => {
     if (gamePhase !== 'country_selection') return;
     const el = timerFillRef.current;
-    if (el) {
-      el.getAnimations().forEach(a => a.cancel());
-      el.animate(
-        [
-          { clipPath: 'inset(0 0% 0 0)' },
-          { clipPath: 'inset(0 100% 0 0)' }
-        ],
-        { duration: timerDuration * 1000, fill: 'forwards', easing: 'linear', composite: 'replace' }
-      );
-    }
-    const timeout = setTimeout(
-      () => autoSelectRef.current && autoSelectRef.current(),
-      timerDuration * 1000
+    if (!el) return;
+    el.getAnimations().forEach(a => a.cancel());
+    let cancelled = false;
+    const anim = el.animate(
+      [
+        { clipPath: 'inset(0 0% 0 0)' },
+        { clipPath: 'inset(0 100% 0 0)' }
+      ],
+      { duration: timerDuration * 1000, fill: 'forwards', easing: 'linear', composite: 'replace' }
     );
-    return () => clearTimeout(timeout);
-  }, [currentPlayer, timerDuration, gamePhase]);
+    anim.onfinish = () => {
+      if (cancelled) return;
+      autoSelectRef.current?.();
+      setTimerCycle(c => c + 1);
+    };
+    return () => { cancelled = true; anim.cancel(); };
+  }, [currentPlayer, timerDuration, gamePhase, timerCycle]);
 
   // Optimized country click handler
   const handleCountryClick = useCallback((country) => {
     if (!onCountrySelect || gamePhase !== 'country_selection' || country.__layer !== 'elevated') {
       return;
     }
+    if (viewedPlayer !== currentPlayer) return;
 
     const countryCode = getCountryCode(country);
     if (!countryCode || countryCode === '-99') return;
@@ -2024,7 +2029,7 @@ const GlobeWrapper = ({
         pathTransitionDuration={0}
 
         // Team color
-        atmosphereColor="cyan"
+        atmosphereColor={Object.values(teamColors)[viewedPlayer] || 'cyan'}
         atmosphereAltitude={0.5}
       />
 
@@ -2063,7 +2068,7 @@ const GlobeWrapper = ({
           </div>
         </div>
 
-        {/* Timebar — WAAPI off-main-thread, rounded cap, gradient fixed */}
+        {/* Timebar — WAAPI off-main-thread, gradient fixed, grey when viewing other team */}
         <div style={{
           flex: 1,
           height: '5px',
@@ -2082,6 +2087,15 @@ const GlobeWrapper = ({
               transform: 'translateZ(0)'
             }}
           />
+          {viewedPlayer !== currentPlayer && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(160,160,160,0.6)',
+              borderRadius: '3px',
+              pointerEvents: 'none'
+            }} />
+          )}
         </div>
 
         {/* Leaderboard — double-click opens scoreboard */}
@@ -2097,15 +2111,15 @@ const GlobeWrapper = ({
         >
           {Object.entries(teamColors).map(([playerId, color], idx) => {
             const score = (playerCountries[playerId] || []).length;
-            const isActive = currentPlayer === idx;
-            const icons = ['✖', '★', '▲', '◆'];
+            const isActive = viewedPlayer === idx;
+            const label = idx + 1;
             return (
               <div
                 key={playerId}
-                onClick={() => onPlayerChange && onPlayerChange(idx)}
+                onClick={() => onViewedPlayerChange && onViewedPlayerChange(idx)}
                 style={{
                   backgroundColor: color,
-                  width: '82px',
+                  width: '62px',
                   height: '34px',
                   display: 'flex',
                   alignItems: 'center',
@@ -2116,14 +2130,14 @@ const GlobeWrapper = ({
                   userSelect: 'none'
                 }}
               >
-                <span style={{ color: 'white', fontSize: '13px', lineHeight: 1 }}>{icons[idx] || '●'}</span>
+                <span style={{ color: 'white', fontSize: '15px', fontWeight: 'normal', lineHeight: 1, textShadow: '1px 1px 0px rgba(0,0,0,0.4)' }}>{label}</span>
                 <span style={{
                   color: 'white',
                   fontSize: '17px',
                   fontWeight: 'bold',
                   marginLeft: 'auto',
                   lineHeight: 1,
-                  textShadow: '0 1px 4px rgba(0,0,0,0.6)'
+                  textShadow: '1px 1px 0px rgba(0,0,0,0.4)'
                 }}>{score}</span>
               </div>
             );
@@ -2204,14 +2218,14 @@ const GlobeWrapper = ({
           gap: '4px'
         }}>
           <div style={{
-            color: '#00FF00',
+            color: Object.values(teamColors)[viewedPlayer] || '#00FFFF',
             fontSize: '18px',
             fontWeight: 'normal',
             display: 'flex',
             alignItems: 'center',
             gap: '5px'
           }}>
-            <span>✖</span> LIME
+            <span>{viewedPlayer + 1}</span> {Object.values(teamColors)[viewedPlayer] === '#00FFFF' ? 'cyan' : 'magenta'}
           </div>
           <input
             type="text"
@@ -2539,6 +2553,7 @@ function App() {
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [timerDuration, setTimerDuration] = useState(10);
   const [showSettings, setShowSettings] = useState(false);
+  const [viewedPlayer, setViewedPlayer] = useState(0);
   const [playerCountries, setPlayerCountries] = useState({
     player1: [],
     player2: []
@@ -2790,20 +2805,6 @@ function App() {
                 minWidth: '200px'
               }}>
                 <div style={{ fontSize: '13px', color: '#eee', fontWeight: 'bold' }}>Settings</div>
-                <label style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  Timer duration (s):
-                  <input
-                    type="number"
-                    min="3"
-                    max="120"
-                    value={timerDuration}
-                    onChange={e => setTimerDuration(Math.max(3, Number(e.target.value)))}
-                    style={{
-                      width: '60px', padding: '2px 6px', backgroundColor: '#444',
-                      color: 'white', border: '1px solid #666', borderRadius: '4px', fontSize: '12px'
-                    }}
-                  />
-                </label>
               </div>
             )}
 
@@ -2838,7 +2839,7 @@ function App() {
         }}>
           <div>
             <h3 style={{ margin: '0 0 10px 0' }}>Game Controls</h3>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
               <button
                 onClick={() => setGamePhase('country_selection')}
                 style={{
@@ -2878,6 +2879,20 @@ function App() {
               >
                 Reset Game
               </button>
+              <label style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Timer (s):
+                <input
+                  type="number"
+                  min="3"
+                  max="120"
+                  value={timerDuration}
+                  onChange={e => setTimerDuration(Math.max(3, Number(e.target.value)))}
+                  style={{
+                    width: '60px', padding: '2px 6px', backgroundColor: '#444',
+                    color: 'white', border: '1px solid #666', borderRadius: '4px', fontSize: '12px'
+                  }}
+                />
+              </label>
             </div>
           </div>
 
@@ -2915,6 +2930,8 @@ function App() {
           setUseDataDrivenRegions={setUseDataDrivenRegions}
           timerDuration={timerDuration}
           onPlayerChange={setCurrentPlayer}
+          viewedPlayer={viewedPlayer}
+          onViewedPlayerChange={setViewedPlayer}
         />
       </main>
     </div>
