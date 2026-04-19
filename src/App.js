@@ -59,6 +59,15 @@ const EXCLUDED_COUNTRIES = new Set([
   'KY', 'AW', 'CW', 'VI', 'VG', 'AI', 'MF', 'SX', 'BL', 'MS', 'HM', 'TF', 'GL', 'XN', '-99'
 ]);
 
+// Team color name lookup
+const TEAM_COLOR_NAMES = {
+  '#00FFFF': 'cyan', '#FF00FF': 'magenta', '#00FF00': 'lime',
+  '#FF8800': 'orange', '#FF0000': 'red', '#0080FF': 'blue',
+  '#FFFF00': 'yellow', '#FF8080': 'pink', '#FFFFFF': 'white'
+};
+const getTeamColorName = (color) =>
+  TEAM_COLOR_NAMES[(color || '').toUpperCase()] || TEAM_COLOR_NAMES[color] || color || 'team';
+
 // Manual mapping for problematic countries
 const MANUAL_COUNTRY_MAPPING = {
   'Norway': 'NO',
@@ -1545,6 +1554,16 @@ const FlyInCard = ({ clickPos, onDone, children }) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const BID_CATEGORIES = [
+  { id: 'gdp', label: 'GDP' },
+  { id: 'area', label: 'Area' },
+  { id: 'population', label: 'Population' },
+  { id: 'neighbors', label: 'Neighbors' },
+  { id: 'forest_area', label: 'Forest' },
+  { id: 'internet_users', label: 'Internet' },
+  { id: 'military_expenditure', label: 'Military' },
+];
+
 const GlobeWrapper = ({
   selectedCountries = [],
   onCountrySelect,
@@ -1557,6 +1576,7 @@ const GlobeWrapper = ({
   useDataDrivenRegions = false,
   setUseDataDrivenRegions,
   timerDuration = 10,
+  biddingTimerDuration = 20,
   onPlayerChange,
   viewedPlayer = 0,
   onViewedPlayerChange
@@ -1573,6 +1593,18 @@ const GlobeWrapper = ({
   const [timerCycle, setTimerCycle] = useState(0);
   const autoSelectRef = useRef(null);
   const timerFillRef = useRef(null);
+
+  // Bidding state
+  const [biddingCurrentBidderIdx, setBiddingCurrentBidderIdx] = useState(0);
+  const [biddingHighBid, setBiddingHighBid] = useState(null); // {teamIdx, amount, category}
+  const [biddingConsecPasses, setBiddingConsecPasses] = useState(0);
+  const [myBidAmount, setMyBidAmount] = useState(1);
+  const [myBidCategory, setMyBidCategory] = useState('gdp');
+  const [biddingTimerCycle, setBiddingTimerCycle] = useState(0);
+  const [biddingWinner, setBiddingWinner] = useState(null); // {teamIdx, amount, category}
+  const [biddingLog, setBiddingLog] = useState([]); // [{teamIdx, type:'bid'|'pass'|'win'|'nowin', amount, category}]
+  const [biddingBidCount, setBiddingBidCount] = useState(0); // number of bids placed this auction
+  const [currentMode, setCurrentMode] = useState('area'); // updates to winning bid's category
 
   const searchResults = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -2024,6 +2056,77 @@ const GlobeWrapper = ({
     return () => { cancelled = true; anim.cancel(); };
   }, [currentPlayer, timerDuration, gamePhase, timerCycle]);
 
+  // Reset bidding state when entering bidding phase
+  useEffect(() => {
+    if (gamePhase === 'bidding') {
+      setBiddingCurrentBidderIdx(0);
+      setBiddingHighBid(null);
+      setBiddingConsecPasses(0);
+      setBiddingWinner(null);
+      setBiddingLog([]);
+      setBiddingBidCount(0);
+      setMyBidAmount(1);
+      setMyBidCategory('gdp');
+      setBiddingTimerCycle(0);
+    }
+  }, [gamePhase]);
+
+  // Bidding timer WAAPI — fires auto-pass on expiry
+  const handleBiddingPass = useCallback(() => {
+    const teamIds = Object.keys(teamColors);
+    const numTeams = teamIds.length;
+    const newPasses = biddingConsecPasses + 1;
+    setBiddingLog(prev => [...prev, { teamIdx: biddingCurrentBidderIdx, type: 'pass' }]);
+    if (biddingHighBid !== null && newPasses >= numTeams - 1) {
+      const winner = biddingHighBid;
+      setBiddingWinner(winner);
+      setCurrentMode(winner.category);
+      setBiddingLog(prev => [...prev, { teamIdx: winner.teamIdx, type: 'win', amount: winner.amount, category: winner.category }]);
+    } else if (biddingHighBid === null && newPasses >= numTeams) {
+      setBiddingWinner({ teamIdx: -1, amount: 0, category: '' });
+      setBiddingLog(prev => [...prev, { teamIdx: -1, type: 'nowin' }]);
+    } else {
+      setBiddingConsecPasses(newPasses);
+      setBiddingCurrentBidderIdx(prev => (prev + 1) % numTeams);
+      setBiddingTimerCycle(c => c + 1);
+    }
+  }, [teamColors, biddingConsecPasses, biddingHighBid, biddingCurrentBidderIdx]);
+
+  const handleBiddingBid = useCallback(() => {
+    const teamIds = Object.keys(teamColors);
+    const numTeams = teamIds.length;
+    const minBid = biddingHighBid ? biddingHighBid.amount + 1 : 1;
+    const amount = Math.max(myBidAmount, minBid);
+    setBiddingHighBid({ teamIdx: biddingCurrentBidderIdx, amount, category: myBidCategory });
+    setBiddingLog(prev => [...prev, { teamIdx: biddingCurrentBidderIdx, type: 'bid', amount, category: myBidCategory }]);
+    setBiddingBidCount(c => c + 1);
+    setBiddingConsecPasses(0);
+    setBiddingCurrentBidderIdx(prev => (prev + 1) % numTeams);
+    setMyBidAmount(amount + 1);
+    setBiddingTimerCycle(c => c + 1);
+  }, [teamColors, biddingCurrentBidderIdx, biddingHighBid, myBidAmount, myBidCategory]);
+
+  const biddingPassRef = useRef(null);
+  useEffect(() => { biddingPassRef.current = handleBiddingPass; }, [handleBiddingPass]);
+
+  useEffect(() => {
+    if (gamePhase !== 'bidding' || biddingWinner !== null) return;
+    const el = timerFillRef.current;
+    if (!el) return;
+    el.getAnimations().forEach(a => a.cancel());
+    let cancelled = false;
+    const anim = el.animate(
+      [{ clipPath: 'inset(0 0% 0 0)' }, { clipPath: 'inset(0 100% 0 0)' }],
+      { duration: biddingTimerDuration * 1000, fill: 'forwards', easing: 'linear', composite: 'replace' }
+    );
+    anim.onfinish = () => {
+      if (cancelled) return;
+      biddingPassRef.current?.();
+      setBiddingTimerCycle(c => c + 1);
+    };
+    return () => { cancelled = true; anim.cancel(); };
+  }, [biddingCurrentBidderIdx, biddingTimerDuration, gamePhase, biddingTimerCycle, biddingWinner]);
+
   // Optimized country click handler
   const handleCountryClick = useCallback((country, event) => {
     if (!onCountrySelect || gamePhase !== 'country_selection' || country.__layer !== 'elevated') {
@@ -2190,72 +2293,30 @@ const GlobeWrapper = ({
     [selectedDatasets]
   );
 
-  // Add this state with your other useState hooks:
-  const [allianceStates, setAllianceStates] = useState({
-    player1: false, // false = default state, true = alliance sent
-    player2: false
-  });
+  // Alliance state: key = 'senderIdx-receiverIdx', value = true/false
+  const [alliancesSent, setAlliancesSent] = useState({});
+  // Display state for "Alliance Sent!" fade animation: same key format
+  const [allianceDisplayStates, setAllianceDisplayStates] = useState({});
 
-  // Separate state for visual display to avoid triggering rescind logic
-  const [allianceDisplayStates, setAllianceDisplayStates] = useState({
-    player1: false,
-    player2: false
-  });
+  // allianceKey: from viewedPlayer → targetIdx, or targetIdx → viewedPlayer
+  const allianceKey = (fromIdx, toIdx) => `${fromIdx}-${toIdx}`;
 
-  // State for alliance sent messages
-  const [allianceSentMessages, setAllianceSentMessages] = useState([]);
-
-  // Add this handler with your other functions:
-  const handleAllianceAction = (playerId, action) => {
-    // Only respond to word buttons (SEND/RESCIND), ignore player name buttons
-    if (action === 'send' || action === 'rescind') {
-      const wasAllianceSent = allianceStates[playerId];
-
-      setAllianceStates(prev => ({
-        ...prev,
-        [playerId]: !prev[playerId] // Simply toggle the state
-      }));
-
-      // Handle display state separately for send vs rescind
-      if (action === 'send' && !wasAllianceSent) {
-        // Show the message immediately when sending
-        setAllianceDisplayStates(prev => ({
-          ...prev,
-          [playerId]: true
-        }));
-
-        // Auto-fade display state after 5 seconds (without triggering rescind logic)
-        setTimeout(() => {
-          // Trigger fade-out transition
-          setAllianceDisplayStates(prev => ({
-            ...prev,
-            [playerId]: false
-          }));
-        }, 5000);
-      } else if (action === 'rescind' && wasAllianceSent) {
-        // Hide the message immediately when rescinding
-        setAllianceDisplayStates(prev => ({
-          ...prev,
-          [playerId]: false
-        }));
-      }
-
-      // Show "Alliance Sent!" message when sending an alliance
-      if (action === 'send' && !wasAllianceSent) {
-        const messageId = Date.now();
-        const playerIndex = Object.keys(allianceStates).indexOf(playerId);
-
-        setAllianceSentMessages(prev => [...prev, {
-          id: messageId,
-          playerId: playerId,
-          playerIndex: playerIndex
-        }]);
-
-        // Remove message after animation completes
-        setTimeout(() => {
-          setAllianceSentMessages(prev => prev.filter(msg => msg.id !== messageId));
-        }, 2000);
-      }
+  const handleAllianceAction = (targetIdx, action) => {
+    const teamIds = Object.keys(teamColors);
+    const key = allianceKey(viewedPlayer, targetIdx);
+    const reverseKey = allianceKey(targetIdx, viewedPlayer);
+    if (action === 'send') {
+      setAlliancesSent(prev => ({ ...prev, [key]: true }));
+      setAllianceDisplayStates(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => setAllianceDisplayStates(prev => ({ ...prev, [key]: false })), 5000);
+    } else if (action === 'rescind') {
+      setAlliancesSent(prev => ({ ...prev, [key]: false }));
+      setAllianceDisplayStates(prev => ({ ...prev, [key]: false }));
+    } else if (action === 'accept') {
+      // Accept the incoming alliance and send back
+      setAlliancesSent(prev => ({ ...prev, [key]: true, [reverseKey]: true }));
+      setAllianceDisplayStates(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => setAllianceDisplayStates(prev => ({ ...prev, [key]: false })), 5000);
     }
   };
 
@@ -2432,8 +2493,18 @@ const GlobeWrapper = ({
             borderBottom: '1px solid white',
             gap: '20px'
           }}>
-            <span style={{ color: '#00FFFF' }}>1</span>
-            <span style={{ color: '#FF00FF' }}>2</span>
+            {Object.entries(teamColors).map(([id, color], idx) => {
+              const activeIdx = gamePhase === 'bidding' ? biddingCurrentBidderIdx :
+                                gamePhase === 'country_selection' ? currentPlayer : -1;
+              const isActive = idx === activeIdx;
+              return (
+                <span key={id} style={{
+                  color: isActive ? color : '#555',
+                  textShadow: isActive ? '0 0 8px rgba(255,255,255,0.9), 0 0 3px white' : 'none',
+                  transition: 'color 0.2s, text-shadow 0.2s'
+                }}>{idx + 1}</span>
+              );
+            })}
           </div>
 
           {/* Mode Selection Content */}
@@ -2450,7 +2521,7 @@ const GlobeWrapper = ({
           }}>
             <div style={{ display: 'flex', gap: '6px' }}>
               <span style={{ color: '#888888' }}>mode</span>
-              <span style={{ color: 'white' }}>area</span>
+              <span style={{ color: 'white' }}>{currentMode}</span>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <span style={{ color: '#888888' }}>eclipse</span>
@@ -2462,9 +2533,99 @@ const GlobeWrapper = ({
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <span style={{ color: '#888888' }}>bid</span>
-              <span style={{ color: 'white' }}>⚔ 1/1</span>
+              <span style={{ color: 'white' }}>⚔ 0/{biddingBidCount}</span>
             </div>
           </div>
+
+          {/* Bidding Section — only visible in bidding phase */}
+          {gamePhase === 'bidding' && (() => {
+            const bidderIdx = biddingCurrentBidderIdx;
+            const bidderColor = Object.values(teamColors)[bidderIdx] || '#fff';
+            const bidderName = getTeamColorName(bidderColor);
+            const isAuctionOver = biddingWinner !== null;
+            const minBid = biddingHighBid ? biddingHighBid.amount + 1 : 1;
+            const effectiveAmount = Math.max(myBidAmount, minBid);
+            const canBid = !biddingHighBid || effectiveAmount > biddingHighBid.amount;
+
+            return (
+              <div style={{ borderTop: '1px solid white', backgroundColor: '#2f2f2f' }}>
+                {/* Bid log */}
+                <div style={{
+                  maxHeight: '90px', overflowY: 'auto', padding: '6px 14px 4px',
+                  display: 'flex', flexDirection: 'column', gap: '2px'
+                }}>
+                  {biddingLog.length === 0 && (
+                    <div style={{ fontSize: '13px', color: '#999' }}>Bidding starts...</div>
+                  )}
+                  {biddingLog.map((entry, i) => {
+                    const ec = Object.values(teamColors)[entry.teamIdx] || '#ccc';
+                    const en = entry.teamIdx >= 0 ? getTeamColorName(ec) : '';
+                    if (entry.type === 'bid') return (
+                      <div key={i} style={{ fontSize: '13px', color: '#ccc' }}>
+                        <span style={{ color: ec }}>{en}</span> bids {entry.amount} for {entry.category.toUpperCase()}
+                      </div>
+                    );
+                    if (entry.type === 'pass') return (
+                      <div key={i} style={{ fontSize: '13px', color: '#888' }}>
+                        <span style={{ color: ec }}>{en}</span> passes
+                      </div>
+                    );
+                    if (entry.type === 'win') return (
+                      <div key={i} style={{ fontSize: '13px', color: '#ccc' }}>
+                        <span style={{ color: ec }}>{en}</span> must win {entry.amount} {entry.amount === 1 ? 'hand' : 'hands'} for {entry.category.toUpperCase()}
+                      </div>
+                    );
+                    if (entry.type === 'nowin') return (
+                      <div key={i} style={{ fontSize: '13px', color: '#999' }}>No bid — round passed</div>
+                    );
+                    return null;
+                  })}
+                </div>
+
+                {/* Bid form */}
+                {!isAuctionOver && (
+                  <div style={{ padding: '6px 14px 10px', display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'white' }}>
+                      <span style={{ color: bidderColor }}>{bidderName}</span>
+                      <span style={{ color: '#aaa' }}>bids</span>
+                      <select
+                        value={effectiveAmount}
+                        onChange={e => setMyBidAmount(Number(e.target.value))}
+                        style={{ background: '#2a2a2a', color: 'white', border: '1px solid #555', borderRadius: '3px', padding: '1px 4px', fontSize: '13px' }}
+                      >
+                        {Array.from({ length: Math.max(1, 14 - minBid) }, (_, i) => i + minBid).map(n => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      <span style={{ color: '#aaa' }}>for</span>
+                      <select
+                        value={myBidCategory}
+                        onChange={e => setMyBidCategory(e.target.value)}
+                        style={{ background: '#2a2a2a', color: 'white', border: '1px solid #555', borderRadius: '3px', padding: '1px 4px', fontSize: '13px' }}
+                      >
+                        {BID_CATEGORIES.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={handleBiddingPass} style={{
+                        flex: 1, padding: '4px 0', background: '#333', color: 'white',
+                        border: '1px solid rgba(255,255,255,0.3)', borderRadius: '3px', cursor: 'pointer', fontSize: '13px'
+                      }}>Pass</button>
+                      <button onClick={canBid ? handleBiddingBid : undefined} style={{
+                        flex: 1, padding: '4px 0',
+                        background: canBid ? '#444' : '#2a2a2a',
+                        color: canBid ? 'white' : '#555',
+                        border: '1px solid rgba(255,255,255,0.3)', borderRadius: '3px',
+                        cursor: canBid ? 'pointer' : 'not-allowed', fontSize: '13px'
+                      }}>Bid {effectiveAmount}</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Lime Label, Search, and Owned Cards */}
@@ -2477,7 +2638,7 @@ const GlobeWrapper = ({
             alignItems: 'center',
             gap: '5px'
           }}>
-            <span>{viewedPlayer + 1}</span> {Object.values(teamColors)[viewedPlayer] === '#00FFFF' ? 'cyan' : 'magenta'}
+            <span>{viewedPlayer + 1}</span> {getTeamColorName(Object.values(teamColors)[viewedPlayer] || '')}
           </div>
           <input
             type="text"
@@ -2709,126 +2870,94 @@ const GlobeWrapper = ({
         </div>
 
         {/* Alliance Panel with Text */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '10px'
-        }}>
-          {/* Alliance Sent Text */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '9px',
-            paddingTop: '35px' // Top border (1px) + Alliance header (24px) + header border (1px) + team sections padding (9px) = 35px
-          }}>
-            {Object.entries(allianceDisplayStates).map(([playerId, isAllianceSent]) => (
-              <div key={playerId} style={{
-                height: '24px',
-                display: 'flex',
-                alignItems: 'center',
-                color: 'white',
-                fontSize: '15px',
-                fontWeight: 'normal',
-                opacity: isAllianceSent ? 1 : 0,
-                transition: 'opacity 0.3s ease-out',
-                pointerEvents: isAllianceSent ? 'auto' : 'none'
-              }}>
-                Alliance Sent!
-              </div>
-            ))}
-          </div>
-
-          {/* Alliance Panel */}
-          <div style={{
-            width: '380px',
-            backgroundColor: 'black',
-            border: '1px solid white'
-          }}>
-          {/* Alliance Header */}
-          <div style={{
-            backgroundColor: '#252525',
-            color: 'white',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '15px',
-            fontWeight: 'normal',
-            borderBottom: '1px solid white',
-            gap: '6px'
-          }}>
-            <img
-              src="/alliance.png"
-              alt="Alliance"
-              style={{
-                width: '16px',
-                height: '16px',
-                objectFit: 'contain'
-              }}
-            />
-            Alliances
-          </div>
-
-          {/* Team Sections */}
-          <div style={{ padding: '9px 30px' }}>
-            {Object.entries(teamColors).map(([playerId, color], index, array) => {
-              const playerNumber = playerId.replace('player', '');
-              const isAllianceSent = allianceStates[playerId];
-              const isLastItem = index === array.length - 1;
-
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          {/* Alliance Sent feedback text per row */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', paddingTop: '35px' }}>
+            {Object.entries(teamColors).map(([playerId, color], idx) => {
+              if (idx === viewedPlayer) return <div key={playerId} style={{ height: '24px' }} />;
+              const key = allianceKey(viewedPlayer, idx);
+              const isDisplayed = !!allianceDisplayStates[key];
               return (
                 <div key={playerId} style={{
-                  marginBottom: isLastItem ? '0px' : '9px',
-                  height: '24px',
-                  border: '1px solid white',
-                  display: 'flex'
+                  height: '24px', display: 'flex', alignItems: 'center',
+                  color: 'white', fontSize: '15px', fontWeight: 'normal',
+                  opacity: isDisplayed ? 1 : 0, transition: 'opacity 0.3s ease-out',
+                  pointerEvents: isDisplayed ? 'auto' : 'none'
                 }}>
-                  <button
-                    onClick={() => handleAllianceAction(playerId, isAllianceSent ? 'rescind' : 'player')}
-                    style={{
-                      width: '50%',
-                      height: '100%',
-                      backgroundColor: !isAllianceSent ? 'black' : '#444444',
-                      color: !isAllianceSent ? 'white' : '#888888',
-                      border: 'none',
-                      borderRight: '1px solid white',
-                      fontSize: '15px',
-                      fontWeight: 'normal',
-                      cursor: !isAllianceSent ? 'default' : 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {!isAllianceSent ? (
-                      <>
-                        <span style={{ color: color }}>{playerNumber}</span> {color === '#00FFFF' ? 'cyan' : 'magenta'}
-                      </>
-                    ) : 'rescind'}
-                  </button>
-
-                  <button
-                    onClick={() => handleAllianceAction(playerId, !isAllianceSent ? 'send' : 'player')}
-                    style={{
-                      width: '50%',
-                      height: '100%',
-                      backgroundColor: !isAllianceSent ? '#666666' : 'black',
-                      color: !isAllianceSent ? 'white' : 'white',
-                      border: 'none',
-                      fontSize: '15px',
-                      fontWeight: 'normal',
-                      cursor: !isAllianceSent ? 'pointer' : 'default',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {!isAllianceSent ? 'send' : (
-                      <>
-                        <span style={{ color: color }}>{playerNumber}</span> {color === '#00FFFF' ? 'cyan' : 'magenta'}
-                      </>
-                    )}
-                  </button>
+                  Alliance Sent!
                 </div>
               );
             })}
           </div>
+
+          {/* Alliance Panel */}
+          <div style={{ width: '380px', backgroundColor: 'black', border: '1px solid white' }}>
+            {/* Alliance Header */}
+            <div style={{
+              backgroundColor: '#252525', color: 'white', height: '24px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '15px', fontWeight: 'normal', borderBottom: '1px solid white', gap: '6px'
+            }}>
+              <img src="/alliance.png" alt="Alliance" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
+              Alliances
+            </div>
+
+            {/* Team Rows */}
+            <div style={{ padding: '9px 30px' }}>
+              {Object.entries(teamColors).map(([playerId, color], idx, arr) => {
+                if (idx === viewedPlayer) return null;
+                const teamIds = Object.keys(teamColors);
+                const isLastItem = idx === arr.length - 1 || (idx === arr.length - 2 && arr.length - 1 === viewedPlayer);
+                const iSentToThem = !!alliancesSent[allianceKey(viewedPlayer, idx)];
+                const theySentToMe = !!alliancesSent[allianceKey(idx, viewedPlayer)];
+                const teamName = getTeamColorName(color);
+                const teamNum = idx + 1;
+
+                // left: always team name label (white text, black bg, no cursor)
+                // right: action button — send / accept / rescind
+                // rescind: dim text (#777), dark bg
+                // send / accept: white text, grey bg (#666)
+                let rightLabel, rightAction, rightBg, rightColor, rightCursor;
+                if (iSentToThem) {
+                  rightLabel = 'rescind'; rightAction = 'rescind';
+                  rightBg = '#333'; rightColor = '#777'; rightCursor = 'pointer';
+                } else if (theySentToMe) {
+                  rightLabel = 'accept'; rightAction = 'accept';
+                  rightBg = '#666'; rightColor = 'white'; rightCursor = 'pointer';
+                } else {
+                  rightLabel = 'send'; rightAction = 'send';
+                  rightBg = '#666'; rightColor = 'white'; rightCursor = 'pointer';
+                }
+
+                return (
+                  <div key={playerId} style={{
+                    marginBottom: isLastItem ? '0px' : '9px', height: '24px',
+                    border: '1px solid white', display: 'flex'
+                  }}>
+                    <button
+                      style={{
+                        width: '50%', height: '100%', backgroundColor: 'black',
+                        color: 'white', border: 'none',
+                        borderRight: '1px solid white', fontSize: '15px', fontWeight: 'normal',
+                        cursor: 'default'
+                      }}
+                    >
+                      <span style={{ color }}>{teamNum}</span> {teamName}
+                    </button>
+                    <button
+                      onClick={() => handleAllianceAction(idx, rightAction)}
+                      style={{
+                        width: '50%', height: '100%', backgroundColor: rightBg,
+                        color: rightColor, border: 'none', fontSize: '15px', fontWeight: 'normal',
+                        cursor: rightCursor, transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {rightLabel}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -2858,8 +2987,9 @@ const GlobeWrapper = ({
             Source: {AVAILABLE_DATASETS[heightFilter].category}
           </div>
         )}
-        <div style={{ color: '#00FFFF' }}>◾ Player 1 Countries</div>
-        <div style={{ color: '#FF00FF' }}>◾ Player 2 Countries</div>
+        {Object.entries(teamColors).map(([id, color], idx) => (
+          <div key={id} style={{ color }}>◾ {idx + 1} {getTeamColorName(color)} countries</div>
+        ))}
         <div style={{ color: '#FFFFFF' }}>━ Data-Driven Boundaries</div>
         <div style={{ marginTop: '5px', fontSize: '11px' }}>
           <div><strong>Datasets:</strong> {selectedDatasets.length} ({dataLoading ? 'Loading...' : 'Live Data'})</div>
@@ -2950,11 +3080,13 @@ function App() {
   const [gamePhase, setGamePhase] = useState('country_selection');
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [timerDuration, setTimerDuration] = useState(10);
+  const [biddingTimerDuration, setBiddingTimerDuration] = useState(20);
   const [showSettings, setShowSettings] = useState(false);
   const [viewedPlayer, setViewedPlayer] = useState(0);
   const [playerCountries, setPlayerCountries] = useState({
     player1: [],
-    player2: []
+    player2: [],
+    player3: []
   });
 
   // Dataset selection state - only include working datasets
@@ -2997,18 +3129,19 @@ function App() {
     }));
 
     if (gamePhase === 'country_selection') {
-      setCurrentPlayer(prev => (prev + 1) % 2);
+      setCurrentPlayer(prev => (prev + 1) % 3);
     }
   }, [currentPlayer, gamePhase]);
 
   const teamColors = {
     player1: '#00FFFF',
-    player2: '#FF00FF'
+    player2: '#FF00FF',
+    player3: '#00FF00'
   };
 
   const resetGame = useCallback(() => {
     setSelectedCountries([]);
-    setPlayerCountries({ player1: [], player2: [] });
+    setPlayerCountries({ player1: [], player2: [], player3: [] });
     setCurrentPlayer(0);
     setGamePhase('country_selection');
   }, []);
@@ -3274,6 +3407,19 @@ function App() {
                 Bidding Phase
               </button>
               <button
+                onClick={() => setGamePhase('play')}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: gamePhase === 'play' ? '#4CAF50' : '#555',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Play
+              </button>
+              <button
                 onClick={resetGame}
                 style={{
                   padding: '8px 12px',
@@ -3287,7 +3433,7 @@ function App() {
                 Reset Game
               </button>
               <label style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                Timer (s):
+                Select Timer (s):
                 <input
                   type="number"
                   min="3"
@@ -3300,24 +3446,34 @@ function App() {
                   }}
                 />
               </label>
+              <label style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Bid Timer (s):
+                <input
+                  type="number"
+                  min="5"
+                  max="120"
+                  value={biddingTimerDuration}
+                  onChange={e => setBiddingTimerDuration(Math.max(5, Number(e.target.value)))}
+                  style={{
+                    width: '60px', padding: '2px 6px', backgroundColor: '#444',
+                    color: 'white', border: '1px solid #666', borderRadius: '4px', fontSize: '12px'
+                  }}
+                />
+              </label>
             </div>
           </div>
 
           <div>
             <h3 style={{ margin: '0 0 10px 0' }}>Player Status</h3>
-            <div style={{ display: 'flex', gap: '20px', fontSize: '14px' }}>
-              <div>
-                <strong style={{ color: '#00FFFF' }}>Player 1:</strong> {playerCountries.player1.length} countries
-                <div style={{ fontSize: '12px', color: '#ccc', maxWidth: '200px' }}>
-                  {playerCountries.player1.join(', ')}
+            <div style={{ display: 'flex', gap: '20px', fontSize: '14px', flexWrap: 'wrap' }}>
+              {Object.entries(teamColors).map(([playerId, color], idx) => (
+                <div key={playerId}>
+                  <strong style={{ color }}>{idx + 1} {getTeamColorName(color)}:</strong> {(playerCountries[playerId] || []).length} countries
+                  <div style={{ fontSize: '12px', color: '#ccc', maxWidth: '200px' }}>
+                    {(playerCountries[playerId] || []).join(', ')}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <strong style={{ color: '#FF00FF' }}>Player 2:</strong> {playerCountries.player2.length} countries
-                <div style={{ fontSize: '12px', color: '#ccc', maxWidth: '200px' }}>
-                  {playerCountries.player2.join(', ')}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
@@ -3336,6 +3492,7 @@ function App() {
           useDataDrivenRegions={useDataDrivenRegions}
           setUseDataDrivenRegions={setUseDataDrivenRegions}
           timerDuration={timerDuration}
+          biddingTimerDuration={biddingTimerDuration}
           onPlayerChange={setCurrentPlayer}
           viewedPlayer={viewedPlayer}
           onViewedPlayerChange={setViewedPlayer}
