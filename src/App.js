@@ -1441,7 +1441,7 @@ const HEX_V_OVERLAP  = HEX_H - HEX_ROW_STEP;         // negative margin between 
 const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) => {
   const name = feature.properties?.NAME || feature.properties?.ADMIN || 'Unknown';
   const continent = getFeatureContinent(feature);
-  const SVG = 62; // fills most of the hex; text is pinned to bottom via flex space-between
+  const SVG = 56; // slightly smaller circle, leaves more room for text
 
   const { continentPath, countryPath, hx, hy } = useMemo(() => {
     const continentFeats = allFeatures.filter(f => getFeatureContinent(f) === continent);
@@ -1485,7 +1485,7 @@ const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) =>
         clipPath:'polygon(50% 0%, 86.6% 25%, 86.6% 75%, 50% 100%, 13.4% 75%, 13.4% 25%)',
         display:'flex', flexDirection:'column', alignItems:'center',
         justifyContent:'space-between',
-        paddingTop: 12, paddingBottom: 10,
+        paddingTop: 8, paddingBottom: 12,
       }}>
         {/* continent + country mini-map */}
         <svg width={SVG} height={SVG} viewBox={`0 0 ${SVG} ${SVG}`} style={{ flexShrink:0 }}>
@@ -1501,15 +1501,20 @@ const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) =>
             {countryPath && <path d={countryPath} fill="white" />}
           </g>
         </svg>
-        {/* country name pinned to bottom of hex */}
+        {/* fixed-height text zone so 1-line names center at same level as 2-line names */}
         <div style={{
-          fontSize:'9px', color:'white', textAlign:'center',
-          fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          lineHeight:1.2, maxWidth: HEX_W * 0.55,
-          overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2,
-          WebkitBoxOrient:'vertical'
+          height: '22px', display:'flex', alignItems:'center', justifyContent:'center',
+          maxWidth: HEX_W * 0.55,
         }}>
-          {name}
+          <div style={{
+            fontSize:'9px', color:'white', textAlign:'center',
+            fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            lineHeight:1.2,
+            overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2,
+            WebkitBoxOrient:'vertical'
+          }}>
+            {name}
+          </div>
         </div>
       </div>
     </div>
@@ -1520,7 +1525,8 @@ const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) =>
 // from the globe click point, flowing smoothly into the grid slot.
 const FlyInCard = ({ clickPos, onDone, children }) => {
   const ref = useRef(null);
-  useEffect(() => {
+  // useLayoutEffect fires before paint — prevents the 1-frame flash at natural position
+  React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !clickPos) return;
     const rect = el.getBoundingClientRect();
@@ -1528,10 +1534,14 @@ const FlyInCard = ({ clickPos, onDone, children }) => {
     const dy = clickPos.y - (rect.top  + rect.height / 2);
     el.style.setProperty('--fx', `${dx.toFixed(1)}px`);
     el.style.setProperty('--fy', `${dy.toFixed(1)}px`);
-    el.style.animation = 'card-fly-in 0.6s cubic-bezier(0.22,1,0.36,1) forwards';
-    el.addEventListener('animationend', onDone, { once: true });
+    el.style.opacity = '';          // let animation control opacity
+    el.style.animation = 'card-fly-in 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards';
+    const done = () => onDone?.();
+    el.addEventListener('animationend', done, { once: true });
+    return () => el.removeEventListener('animationend', done);
   }, []);
-  return <div ref={ref}>{children}</div>;
+  // Start invisible so there's no flash before useLayoutEffect applies the animation
+  return <div ref={ref} style={{ opacity: 0 }}>{children}</div>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2032,7 +2042,7 @@ const GlobeWrapper = ({
       if (event) clickPosRef.current = { x: event.clientX, y: event.clientY };
       onCountrySelect(countryCode);
     }
-  }, [onCountrySelect, gamePhase, playerCountries]);
+  }, [onCountrySelect, gamePhase, playerCountries, viewedPlayer, currentPlayer]);
 
   // Optimized hover handler
   const handlePolygonHover = useCallback((country) => {
@@ -2509,7 +2519,7 @@ const GlobeWrapper = ({
             const gridH = rows.length === 0 ? 0
               : HEX_H + (rows.length - 1) * (HEX_H - (HEX_H - rowStep));
             return (
-              <div style={{
+              <div className="hex-scroll" style={{
                 position: 'absolute',
                 top: '100%',
                 left: '50%',
@@ -2587,7 +2597,7 @@ const GlobeWrapper = ({
             const gridH = rows.length === 0 ? 0 : HEX_H + (rows.length - 1) * (HEX_H - (HEX_H - rowStep));
 
             return (
-              <div style={{
+              <div className="hex-scroll" style={{
                 marginTop: '8px',
                 maxHeight: '55vh',
                 overflowY: 'auto',
@@ -3048,10 +3058,14 @@ function App() {
             to   { opacity: 1; }
           }
           @keyframes card-fly-in {
-            0%   { opacity: 0; transform: scale(0.15) translate(var(--fx), var(--fy)); }
-            60%  { opacity: 1; transform: scale(1.08) translate(0, 0); }
-            100% { opacity: 1; transform: scale(1)    translate(0, 0); }
+            from { opacity: 0; transform: scale(0.12) translate(var(--fx), var(--fy)); }
+            to   { opacity: 1; transform: scale(1)    translate(0, 0); }
           }
+
+          .hex-scroll::-webkit-scrollbar { width: 3px; }
+          .hex-scroll::-webkit-scrollbar-track { background: transparent; }
+          .hex-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+          .hex-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
           /* Remove ALL default tooltip backgrounds from react-globe.gl */
           .scene-tooltip,
