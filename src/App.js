@@ -1525,22 +1525,21 @@ const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) =>
 // from the globe click point, flowing smoothly into the grid slot.
 const FlyInCard = ({ clickPos, onDone, children }) => {
   const ref = useRef(null);
-  // useLayoutEffect fires before paint — prevents the 1-frame flash at natural position
   React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !clickPos) return;
     const rect = el.getBoundingClientRect();
     const dx = clickPos.x - (rect.left + rect.width / 2);
     const dy = clickPos.y - (rect.top  + rect.height / 2);
-    el.style.setProperty('--fx', `${dx.toFixed(1)}px`);
-    el.style.setProperty('--fy', `${dy.toFixed(1)}px`);
-    el.style.opacity = '';          // let animation control opacity
-    el.style.animation = 'card-fly-in 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards';
-    const done = () => onDone?.();
-    el.addEventListener('animationend', done, { once: true });
-    return () => el.removeEventListener('animationend', done);
+    // WAAPI: translate BEFORE scale so displacement is in screen pixels, not scaled space.
+    // Plain ease-out — no overshoot, straight path to slot.
+    const anim = el.animate([
+      { opacity: 0, transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(0.18)` },
+      { opacity: 1, transform: 'translate(0px, 0px) scale(1)' }
+    ], { duration: 520, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)', fill: 'forwards' });
+    anim.onfinish = () => onDone?.();
+    return () => anim.cancel();
   }, []);
-  // Start invisible so there's no flash before useLayoutEffect applies the animation
   return <div ref={ref} style={{ opacity: 0 }}>{children}</div>;
 };
 
@@ -2551,12 +2550,14 @@ const GlobeWrapper = ({
                             feature={f}
                             allFeatures={countries.features}
                             clipId={`${ri}-${ci}`}
-                            onClick={() => {
+                            onClick={(e) => {
                               const code = getCountryCode(f);
-                              if (code && onCountrySelect && gamePhase === 'country_selection' && viewedPlayer === currentPlayer) {
-                                const taken = Object.values(playerCountries).some(list => list.includes(code));
-                                if (!taken) onCountrySelect(code);
-                              }
+                              if (!code || !onCountrySelect || gamePhase !== 'country_selection' || viewedPlayer !== currentPlayer) return;
+                              const taken = Object.values(playerCountries).some(list => list.includes(code));
+                              if (taken) return;
+                              // Capture click position so the fly-in starts from the search card
+                              if (e) clickPosRef.current = { x: e.clientX, y: e.clientY };
+                              onCountrySelect(code);
                               setSearchQuery('');
                             }}
                           />
@@ -2603,8 +2604,9 @@ const GlobeWrapper = ({
                 overflowY: 'auto',
                 overflowX: 'hidden',
                 width: gridW + 40,
+                direction: 'rtl',  // moves scrollbar to left side
               }}>
-                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', margin:'0 auto', width: gridW, height: gridH }}>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', margin:'0 auto', width: gridW, height: gridH, direction: 'ltr' }}>
                   {rows.map((row, ri) => (
                     <div key={ri} style={{
                       display:'flex', flexDirection:'row',
