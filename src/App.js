@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import Globe from 'react-globe.gl';
 import { rewind } from '@turf/rewind';
 
@@ -1319,12 +1319,17 @@ const GlobeWrapper = ({
   selectedDatasets = [],
   dataLoading = false,
   useDataDrivenRegions = false,
-  setUseDataDrivenRegions
+  setUseDataDrivenRegions,
+  timerDuration = 10,
+  onPlayerChange
 }) => {
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
   const [heightFilter, setHeightFilter] = useState('none');
   const [regionBoundaries, setRegionBoundaries] = useState([]);
+  const [showScoreboard, setShowScoreboard] = useState(false);
+  const autoSelectRef = useRef(null);
+  const timerFillRef = useRef(null);
 
   // Memoized country region lookup with data-driven fallback
   const getCountryRegion = useCallback((country) => {
@@ -1715,6 +1720,43 @@ const GlobeWrapper = ({
     []
   );
 
+  // Auto-select a random available country
+  const autoSelectCountry = useCallback(() => {
+    if (!onCountrySelect || gamePhase !== 'country_selection') return;
+    const allCodes = countries.features
+      .map(f => getCountryCode(f))
+      .filter(code => code && code !== '-99' && !EXCLUDED_COUNTRIES.has(code));
+    const taken = new Set(Object.values(playerCountries).flat());
+    const available = allCodes.filter(code => !taken.has(code));
+    if (available.length > 0) {
+      onCountrySelect(available[Math.floor(Math.random() * available.length)]);
+    }
+  }, [countries, playerCountries, onCountrySelect, gamePhase]);
+
+  // Keep a stable ref so the timeout closure is never stale
+  useEffect(() => { autoSelectRef.current = autoSelectCountry; }, [autoSelectCountry]);
+
+  // WAAPI animation — runs off main thread, smooth; single timeout for auto-select logic
+  useEffect(() => {
+    if (gamePhase !== 'country_selection') return;
+    const el = timerFillRef.current;
+    if (el) {
+      el.getAnimations().forEach(a => a.cancel());
+      el.animate(
+        [
+          { clipPath: 'inset(0 0% 0 0)' },
+          { clipPath: 'inset(0 100% 0 0)' }
+        ],
+        { duration: timerDuration * 1000, fill: 'forwards', easing: 'linear', composite: 'replace' }
+      );
+    }
+    const timeout = setTimeout(
+      () => autoSelectRef.current && autoSelectRef.current(),
+      timerDuration * 1000
+    );
+    return () => clearTimeout(timeout);
+  }, [currentPlayer, timerDuration, gamePhase]);
+
   // Optimized country click handler
   const handleCountryClick = useCallback((country) => {
     if (!onCountrySelect || gamePhase !== 'country_selection' || country.__layer !== 'elevated') {
@@ -1986,37 +2028,108 @@ const GlobeWrapper = ({
         atmosphereAltitude={0.5}
       />
 
-      {/* Top Left - Phase Image and Label */}
+      {/* Top row: Phase | Timebar | Leaderboard */}
       <div style={{
         position: 'absolute',
         top: '20px',
         left: '20px',
+        right: '10px',
         display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '8px',
-        zIndex: 100
+        alignItems: 'flex-start',
+        gap: '10px',
+        zIndex: 100,
+        pointerEvents: 'none'
       }}>
-        <img
-          src="/phase.png"
-          alt="Phase"
-          style={{
-            width: '60px',
-            height: '60px',
-            objectFit: 'contain'
-          }}
-        />
+
+        {/* Phase image + label */}
         <div style={{
-          color: 'white',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          textAlign: 'center'
+          pointerEvents: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: '8px',
+          flexShrink: 0
         }}>
-          {gamePhase === 'country_selection' ? 'Selection' : 
-           gamePhase === 'bidding' ? 'Bidding' : 
-           gamePhase === 'planning' ? 'Planning' :
-           gamePhase === 'play' ? 'Play' : 'Game Over'}
+          <img
+            src="/phase.png"
+            alt="Phase"
+            style={{ width: '22px', height: '22px', objectFit: 'contain' }}
+          />
+          <div style={{ color: 'white', fontSize: '11px', fontWeight: 'normal' }}>
+            {gamePhase === 'country_selection' ? 'Selection' :
+             gamePhase === 'bidding' ? 'Bidding' :
+             gamePhase === 'planning' ? 'Planning' :
+             gamePhase === 'play' ? 'Play' : 'Game Over'}
+          </div>
         </div>
+
+        {/* Timebar — WAAPI off-main-thread, rounded cap, gradient fixed */}
+        <div style={{
+          flex: 1,
+          height: '5px',
+          borderRadius: '3px',
+          alignSelf: 'flex-start',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div
+            ref={timerFillRef}
+            style={{
+              width: '100%',
+              height: '100%',
+              background: 'linear-gradient(90deg, white, #FF80FF, #0000FF, #80FFFF, white)',
+              willChange: 'clip-path',
+              transform: 'translateZ(0)'
+            }}
+          />
+        </div>
+
+        {/* Leaderboard — double-click opens scoreboard */}
+        <div
+          style={{
+            pointerEvents: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0px',
+            flexShrink: 0
+          }}
+          onDoubleClick={() => setShowScoreboard(true)}
+        >
+          {Object.entries(teamColors).map(([playerId, color], idx) => {
+            const score = (playerCountries[playerId] || []).length;
+            const isActive = currentPlayer === idx;
+            const icons = ['✖', '★', '▲', '◆'];
+            return (
+              <div
+                key={playerId}
+                onClick={() => onPlayerChange && onPlayerChange(idx)}
+                style={{
+                  backgroundColor: color,
+                  width: '82px',
+                  height: '34px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 7px',
+                  cursor: 'pointer',
+                  outline: isActive ? '2px solid white' : 'none',
+                  outlineOffset: '-2px',
+                  userSelect: 'none'
+                }}
+              >
+                <span style={{ color: 'white', fontSize: '13px', lineHeight: 1 }}>{icons[idx] || '●'}</span>
+                <span style={{
+                  color: 'white',
+                  fontSize: '17px',
+                  fontWeight: 'bold',
+                  marginLeft: 'auto',
+                  lineHeight: 1,
+                  textShadow: '0 1px 4px rgba(0,0,0,0.6)'
+                }}>{score}</span>
+              </div>
+            );
+          })}
+        </div>
+
       </div>
 
       {/* Left Panel Container - Mode Selector */}
@@ -2311,7 +2424,7 @@ const GlobeWrapper = ({
       {/* Legend */}
       <div style={{
         position: 'absolute',
-        top: '10px',
+        top: '100px',
         right: '10px',
         backgroundColor: 'transparent',
         color: 'white',
@@ -2349,6 +2462,72 @@ const GlobeWrapper = ({
           )}
         </div>
       </div>
+
+      {/* Scoreboard overlay */}
+      {showScoreboard && (() => {
+        const icons = ['✖', '★', '▲', '◆'];
+        const cols = [
+          { key: 'handsWon',                label: 'hands won' },
+          { key: 'completedRegions',         label: 'countries in a completed region / continent' },
+          { key: 'handsWonScore',            label: 'hands won score' },
+          { key: 'unificationScore',         label: 'unification score' },
+          { key: 'alliancePenalty',          label: 'alliance penalty' },
+          { key: 'total',                    label: 'total' },
+        ];
+        const computeStats = (playerId) => {
+          const owned = new Set(playerCountries[playerId] || []);
+          let completedRegions = 0;
+          Object.values(REGIONS).forEach(list => {
+            const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
+            if (valid.length > 0 && valid.every(c => owned.has(c))) completedRegions += valid.length;
+          });
+          return { handsWon: 0, completedRegions, handsWonScore: 0, unificationScore: 0, alliancePenalty: 0, total: 0 };
+        };
+        const players = Object.entries(teamColors);
+        const font = { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', fontSize: '15px', fontWeight: 'normal' };
+        const cell = { ...font, padding: '10px 20px', textAlign: 'center', whiteSpace: 'nowrap', color: 'white' };
+        const hcell = { ...cell, padding: '10px 20px' };
+        const sep = '2px solid white';
+        return (
+          <div
+            onClick={() => setShowScoreboard(false)}
+            style={{
+              position: 'absolute', inset: 0, zIndex: 300,
+              backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+              background: 'rgba(0,0,0,0.38)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              animation: 'scoreboard-in 0.22s ease forwards'
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ width: '100%', background: '#000', padding: '28px 40px', boxSizing: 'border-box' }}
+            >
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: sep }}>
+                    <th style={{ ...hcell, textAlign: 'left', width: '48px' }} />
+                    {cols.map(c => <th key={c.key} style={hcell}>{c.label}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {players.map(([playerId, color], idx) => {
+                    const stats = computeStats(playerId);
+                    return (
+                      <tr key={playerId} style={{ borderBottom: sep }}>
+                        <td style={{ ...cell, textAlign: 'left', paddingLeft: '0' }}>
+                          <span style={{ color, fontSize: '19px' }}>{icons[idx] || '●'}</span>
+                        </td>
+                        {cols.map(c => <td key={c.key} style={cell}>{stats[c.key]}</td>)}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -2358,6 +2537,8 @@ function App() {
   const [selectedCountries, setSelectedCountries] = useState([]);
   const [gamePhase, setGamePhase] = useState('country_selection');
   const [currentPlayer, setCurrentPlayer] = useState(0);
+  const [timerDuration, setTimerDuration] = useState(10);
+  const [showSettings, setShowSettings] = useState(false);
   const [playerCountries, setPlayerCountries] = useState({
     player1: [],
     player2: []
@@ -2460,7 +2641,12 @@ function App() {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
-          
+
+          @keyframes scoreboard-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+
           /* Remove ALL default tooltip backgrounds from react-globe.gl */
           .scene-tooltip,
           .graph-tooltip,
@@ -2580,12 +2766,46 @@ function App() {
             </div>
           </div>
 
-          {/* Game Phase and Data Status */}
+          {/* Game Phase, Settings, and Data Status */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
             <div style={{ fontSize: '14px', color: '#4CAF50' }}>
               Phase: {gamePhase.replace('_', ' ').toUpperCase()}
             </div>
 
+            {/* Settings toggle */}
+            <button
+              onClick={() => setShowSettings(s => !s)}
+              style={{
+                background: 'none', border: '1px solid #666', color: '#ccc',
+                borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '12px'
+              }}
+            >
+              ⚙ Settings
+            </button>
+
+            {showSettings && (
+              <div style={{
+                backgroundColor: '#333', border: '1px solid #555', borderRadius: '6px',
+                padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px',
+                minWidth: '200px'
+              }}>
+                <div style={{ fontSize: '13px', color: '#eee', fontWeight: 'bold' }}>Settings</div>
+                <label style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Timer duration (s):
+                  <input
+                    type="number"
+                    min="3"
+                    max="120"
+                    value={timerDuration}
+                    onChange={e => setTimerDuration(Math.max(3, Number(e.target.value)))}
+                    style={{
+                      width: '60px', padding: '2px 6px', backgroundColor: '#444',
+                      color: 'white', border: '1px solid #666', borderRadius: '4px', fontSize: '12px'
+                    }}
+                  />
+                </label>
+              </div>
+            )}
 
             <div style={{
               fontSize: '12px',
@@ -2693,6 +2913,8 @@ function App() {
           dataLoading={dataLoading}
           useDataDrivenRegions={useDataDrivenRegions}
           setUseDataDrivenRegions={setUseDataDrivenRegions}
+          timerDuration={timerDuration}
+          onPlayerChange={setCurrentPlayer}
         />
       </main>
     </div>
