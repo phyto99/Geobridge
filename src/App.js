@@ -1516,6 +1516,24 @@ const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) =>
   );
 });
 
+// Measures the card's rendered position and translates the animation to start
+// from the globe click point, flowing smoothly into the grid slot.
+const FlyInCard = ({ clickPos, onDone, children }) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !clickPos) return;
+    const rect = el.getBoundingClientRect();
+    const dx = clickPos.x - (rect.left + rect.width / 2);
+    const dy = clickPos.y - (rect.top  + rect.height / 2);
+    el.style.setProperty('--fx', `${dx.toFixed(1)}px`);
+    el.style.setProperty('--fy', `${dy.toFixed(1)}px`);
+    el.style.animation = 'card-fly-in 0.6s cubic-bezier(0.22,1,0.36,1) forwards';
+    el.addEventListener('animationend', onDone, { once: true });
+  }, []);
+  return <div ref={ref}>{children}</div>;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GlobeWrapper = ({
@@ -1538,6 +1556,9 @@ const GlobeWrapper = ({
   const [hoverD, setHoverD] = useState(null);
   const [heightFilter, setHeightFilter] = useState('none');
   const [searchQuery, setSearchQuery] = useState('');
+  const [animatingCode, setAnimatingCode] = useState(null);
+  const clickPosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+  const prevPlayerCountriesRef = useRef(playerCountries);
   const [regionBoundaries, setRegionBoundaries] = useState([]);
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [timerCycle, setTimerCycle] = useState(0);
@@ -1554,6 +1575,18 @@ const GlobeWrapper = ({
       })
       .slice(0, 50);
   }, [searchQuery, countries.features]);
+
+  // Detect newly added country and trigger fly-in animation
+  useEffect(() => {
+    const prev = prevPlayerCountriesRef.current;
+    for (const key of Object.keys(playerCountries)) {
+      const prevList = prev[key] || [];
+      const currList = playerCountries[key] || [];
+      const newCode = currList.find(c => !prevList.includes(c));
+      if (newCode) { setAnimatingCode(newCode); break; }
+    }
+    prevPlayerCountriesRef.current = playerCountries;
+  }, [playerCountries]);
 
   // Memoized country region lookup with data-driven fallback
   const getCountryRegion = useCallback((country) => {
@@ -1983,7 +2016,7 @@ const GlobeWrapper = ({
   }, [currentPlayer, timerDuration, gamePhase, timerCycle]);
 
   // Optimized country click handler
-  const handleCountryClick = useCallback((country) => {
+  const handleCountryClick = useCallback((country, event) => {
     if (!onCountrySelect || gamePhase !== 'country_selection' || country.__layer !== 'elevated') {
       return;
     }
@@ -1996,6 +2029,7 @@ const GlobeWrapper = ({
       .some(playerCountryList => playerCountryList.includes(countryCode));
 
     if (!isAlreadySelected) {
+      if (event) clickPosRef.current = { x: event.clientX, y: event.clientY };
       onCountrySelect(countryCode);
     }
   }, [onCountrySelect, gamePhase, playerCountries]);
@@ -2424,7 +2458,7 @@ const GlobeWrapper = ({
           </div>
         </div>
 
-        {/* Lime Label and Search - Outside the box */}
+        {/* Lime Label, Search, and Owned Cards */}
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', position:'relative' }}>
           <div style={{
             color: Object.values(teamColors)[viewedPlayer] || '#00FFFF',
@@ -2518,6 +2552,75 @@ const GlobeWrapper = ({
                           />
                         </div>
                       ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Owned countries grid — visible when search is closed, ordered by claim time */}
+          {!searchQuery && (() => {
+            const playerKey = `player${viewedPlayer + 1}`;
+            const ownedCodes = playerCountries[playerKey] || [];
+            if (!ownedCodes.length) return null;
+            // Preserve claim order by mapping codes → features (not filtering features)
+            const ownedFeatures = ownedCodes
+              .map(code => countries.features.find(f => getCountryCode(f) === code))
+              .filter(Boolean);
+            if (!ownedFeatures.length) return null;
+
+            const GAP = 8;
+            const ROW_PATTERN = [3, 2];
+            const colStep = HEX_COL_STEP + GAP;
+            const tightDiag = Math.sqrt((HEX_COL_STEP / 2) ** 2 + HEX_ROW_STEP ** 2);
+            const rowStep = Math.round(Math.sqrt((tightDiag + GAP) ** 2 - (colStep / 2) ** 2));
+            const maxCols = Math.max(...ROW_PATTERN);
+            const gridW = maxCols * colStep + HEX_W - colStep;
+            const rows = [];
+            let idx = 0;
+            while (idx < ownedFeatures.length) {
+              const cols = ROW_PATTERN[rows.length % ROW_PATTERN.length];
+              rows.push(ownedFeatures.slice(idx, idx + cols));
+              idx += cols;
+            }
+            const gridH = rows.length === 0 ? 0 : HEX_H + (rows.length - 1) * (HEX_H - (HEX_H - rowStep));
+
+            return (
+              <div style={{
+                marginTop: '8px',
+                maxHeight: '55vh',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                width: gridW + 40,
+              }}>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', margin:'0 auto', width: gridW, height: gridH }}>
+                  {rows.map((row, ri) => (
+                    <div key={ri} style={{
+                      display:'flex', flexDirection:'row',
+                      marginTop: ri === 0 ? 0 : -(HEX_H - rowStep),
+                      marginLeft: ri % 2 === 1 ? colStep / 2 : 0,
+                    }}>
+                      {row.map((f, ci) => {
+                        const code = getCountryCode(f);
+                        const isNew = code === animatingCode;
+                        const card = (
+                          <CountryHexCard
+                            feature={f}
+                            allFeatures={countries.features}
+                            clipId={`owned-${ri}-${ci}`}
+                            onClick={() => {}}
+                          />
+                        );
+                        return (
+                          <div key={code || ci} style={{ marginLeft: ci === 0 ? 0 : -(HEX_W - colStep) }}>
+                            {isNew
+                              ? <FlyInCard clickPos={clickPosRef.current} onDone={() => setAnimatingCode(null)}>{card}</FlyInCard>
+                              : card
+                            }
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
@@ -2943,6 +3046,11 @@ function App() {
           @keyframes scoreboard-in {
             from { opacity: 0; }
             to   { opacity: 1; }
+          }
+          @keyframes card-fly-in {
+            0%   { opacity: 0; transform: scale(0.15) translate(var(--fx), var(--fy)); }
+            60%  { opacity: 1; transform: scale(1.08) translate(0, 0); }
+            100% { opacity: 1; transform: scale(1)    translate(0, 0); }
           }
 
           /* Remove ALL default tooltip backgrounds from react-globe.gl */
