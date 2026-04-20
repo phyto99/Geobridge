@@ -1554,6 +1554,8 @@ const FlyInCard = ({ clickPos, onDone, children }) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const ECLIPSE_REGIONS = ['Africa', 'Asia', 'Europe', 'N. America', 'S. America', 'Oceania'];
+
 const BID_CATEGORIES = [
   { id: 'gdp', label: 'GDP' },
   { id: 'area', label: 'Area' },
@@ -1579,7 +1581,8 @@ const GlobeWrapper = ({
   biddingTimerDuration = 20,
   onPlayerChange,
   viewedPlayer = 0,
-  onViewedPlayerChange
+  onViewedPlayerChange,
+  eclipseEnabled = true
 }) => {
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
@@ -1600,6 +1603,8 @@ const GlobeWrapper = ({
   const [biddingConsecPasses, setBiddingConsecPasses] = useState(0);
   const [myBidAmount, setMyBidAmount] = useState(1);
   const [myBidCategory, setMyBidCategory] = useState('gdp');
+  const [myEclipseRegion, setMyEclipseRegion] = useState('Africa');
+  const [eclipseRegion, setEclipseRegion] = useState('Africa');
   const [biddingTimerCycle, setBiddingTimerCycle] = useState(0);
   const [biddingWinner, setBiddingWinner] = useState(null); // {teamIdx, amount, category}
   const [biddingLog, setBiddingLog] = useState([]); // [{teamIdx, type:'bid'|'pass'|'win'|'nowin', amount, category}]
@@ -2098,13 +2103,14 @@ const GlobeWrapper = ({
     const minBid = biddingHighBid ? biddingHighBid.amount + 1 : 1;
     const amount = Math.max(myBidAmount, minBid);
     setBiddingHighBid({ teamIdx: biddingCurrentBidderIdx, amount, category: myBidCategory });
-    setBiddingLog(prev => [...prev, { teamIdx: biddingCurrentBidderIdx, type: 'bid', amount, category: myBidCategory }]);
+    setBiddingLog(prev => [...prev, { teamIdx: biddingCurrentBidderIdx, type: 'bid', amount, category: myBidCategory, eclipseRegion: myEclipseRegion }]);
+    setEclipseRegion(myEclipseRegion);
     setBiddingBidCount(c => c + 1);
     setBiddingConsecPasses(0);
     setBiddingCurrentBidderIdx(prev => (prev + 1) % numTeams);
     setMyBidAmount(amount + 1);
     setBiddingTimerCycle(c => c + 1);
-  }, [teamColors, biddingCurrentBidderIdx, biddingHighBid, myBidAmount, myBidCategory]);
+  }, [teamColors, biddingCurrentBidderIdx, biddingHighBid, myBidAmount, myBidCategory, myEclipseRegion]);
 
   const biddingPassRef = useRef(null);
   useEffect(() => { biddingPassRef.current = handleBiddingPass; }, [handleBiddingPass]);
@@ -2297,6 +2303,8 @@ const GlobeWrapper = ({
   const [alliancesSent, setAlliancesSent] = useState({});
   // Display state for "Alliance Sent!" fade animation: same key format
   const [allianceDisplayStates, setAllianceDisplayStates] = useState({});
+  // Alliance penalties: playerId → cumulative penalty points
+  const [alliancePenalties, setAlliancePenalties] = useState({});
 
   // allianceKey: from viewedPlayer → targetIdx, or targetIdx → viewedPlayer
   const allianceKey = (fromIdx, toIdx) => `${fromIdx}-${toIdx}`;
@@ -2313,10 +2321,20 @@ const GlobeWrapper = ({
       setAlliancesSent(prev => ({ ...prev, [key]: false }));
       setAllianceDisplayStates(prev => ({ ...prev, [key]: false }));
     } else if (action === 'accept') {
-      // Accept the incoming alliance and send back
       setAlliancesSent(prev => ({ ...prev, [key]: true, [reverseKey]: true }));
       setAllianceDisplayStates(prev => ({ ...prev, [key]: true }));
       setTimeout(() => setAllianceDisplayStates(prev => ({ ...prev, [key]: false })), 5000);
+    } else if (action === 'break') {
+      setAlliancesSent(prev => ({ ...prev, [key]: false, [reverseKey]: false }));
+      setAllianceDisplayStates(prev => ({ ...prev, [key]: false, [reverseKey]: false }));
+      const teamIds = Object.keys(teamColors);
+      const myId = teamIds[viewedPlayer];
+      const theirId = teamIds[targetIdx];
+      setAlliancePenalties(prev => ({
+        ...prev,
+        [myId]: (prev[myId] || 0) + 10,
+        [theirId]: (prev[theirId] || 0) + 10,
+      }));
     }
   };
 
@@ -2514,27 +2532,20 @@ const GlobeWrapper = ({
             height: '20px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
             fontSize: '13px',
             fontWeight: 'normal',
-            padding: '0 20px'
           }}>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <span style={{ color: '#888888' }}>mode</span>
-              <span style={{ color: 'white' }}>{currentMode}</span>
-            </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <span style={{ color: '#888888' }}>eclipse</span>
-              <span style={{ color: 'white' }}>Europe</span>
-            </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <span style={{ color: '#888888' }}>round</span>
-              <span style={{ color: 'white' }}>1/1</span>
-            </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <span style={{ color: '#888888' }}>bid</span>
-              <span style={{ color: 'white' }}>⚔ 0/{biddingBidCount}</span>
-            </div>
+            {[
+              { label: 'mode', value: currentMode, show: true },
+              { label: 'eclipse', value: eclipseRegion, show: eclipseEnabled },
+              { label: 'round', value: '1/1', show: true },
+              { label: 'bid', value: `⚔ 0/${biddingBidCount}`, show: true },
+            ].filter(item => item.show).map(item => (
+              <div key={item.label} style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                <span style={{ color: '#888888' }}>{item.label}</span>
+                <span style={{ color: 'white' }}>{item.value}</span>
+              </div>
+            ))}
           </div>
 
           {/* Bidding Section — only visible in bidding phase */}
@@ -2548,11 +2559,11 @@ const GlobeWrapper = ({
             const canBid = !biddingHighBid || effectiveAmount > biddingHighBid.amount;
 
             return (
-              <div style={{ borderTop: '1px solid white', backgroundColor: '#2f2f2f' }}>
+              <div style={{ borderTop: '1px solid white', backgroundColor: '#1a1a1a' }}>
                 {/* Bid log */}
                 <div style={{
                   maxHeight: '90px', overflowY: 'auto', padding: '6px 14px 4px',
-                  display: 'flex', flexDirection: 'column', gap: '2px'
+                  display: 'flex', flexDirection: 'column', gap: '2px',
                 }}>
                   {biddingLog.length === 0 && (
                     <div style={{ fontSize: '13px', color: '#999' }}>Bidding starts...</div>
@@ -2562,17 +2573,17 @@ const GlobeWrapper = ({
                     const en = entry.teamIdx >= 0 ? getTeamColorName(ec) : '';
                     if (entry.type === 'bid') return (
                       <div key={i} style={{ fontSize: '13px', color: '#ccc' }}>
-                        <span style={{ color: ec }}>{en}</span> bids {entry.amount} for {entry.category.toUpperCase()}
+                        <span style={{ color: ec }}>{en}</span> bids {entry.amount} for {entry.category.toUpperCase()}{eclipseEnabled && entry.eclipseRegion ? ` and eclipse on ${entry.eclipseRegion}` : ''}
                       </div>
                     );
                     if (entry.type === 'pass') return (
-                      <div key={i} style={{ fontSize: '13px', color: '#888' }}>
+                      <div key={i} style={{ fontSize: '13px', color: '#bbb' }}>
                         <span style={{ color: ec }}>{en}</span> passes
                       </div>
                     );
                     if (entry.type === 'win') return (
                       <div key={i} style={{ fontSize: '13px', color: '#ccc' }}>
-                        <span style={{ color: ec }}>{en}</span> must win {entry.amount} {entry.amount === 1 ? 'hand' : 'hands'} for {entry.category.toUpperCase()}
+                        <span style={{ color: ec }}>{en}</span> must win {entry.amount} {entry.category.toUpperCase()} {entry.amount === 1 ? 'hand' : 'hands'}
                       </div>
                     );
                     if (entry.type === 'nowin') return (
@@ -2584,7 +2595,7 @@ const GlobeWrapper = ({
 
                 {/* Bid form */}
                 {!isAuctionOver && (
-                  <div style={{ padding: '6px 14px 10px', display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+                  <div style={{ padding: '6px 14px 10px', display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.15)', backgroundColor: '#1a1a1a' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'white' }}>
                       <span style={{ color: bidderColor }}>{bidderName}</span>
                       <span style={{ color: '#aaa' }}>bids</span>
@@ -2607,6 +2618,20 @@ const GlobeWrapper = ({
                           <option key={cat.id} value={cat.id}>{cat.label}</option>
                         ))}
                       </select>
+                      {eclipseEnabled && (
+                        <>
+                          <span style={{ color: '#aaa' }}>and</span>
+                          <select
+                            value={myEclipseRegion}
+                            onChange={e => setMyEclipseRegion(e.target.value)}
+                            style={{ background: '#2a2a2a', color: 'white', border: '1px solid #555', borderRadius: '3px', padding: '1px 4px', fontSize: '13px' }}
+                          >
+                            {ECLIPSE_REGIONS.map(r => (
+                              <option key={r} value={r}>{r}</option>
+                            ))}
+                          </select>
+                        </>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={handleBiddingPass} style={{
@@ -2913,47 +2938,100 @@ const GlobeWrapper = ({
                 const teamName = getTeamColorName(color);
                 const teamNum = idx + 1;
 
-                // left: always team name label (white text, black bg, no cursor)
-                // right: action button — send / accept / rescind
-                // rescind: dim text (#777), dark bg
-                // send / accept: white text, grey bg (#666)
+                const isAccepted = iSentToThem && theySentToMe;
+                const isPending = iSentToThem && !theySentToMe;
+
                 let rightLabel, rightAction, rightBg, rightColor, rightCursor;
-                if (iSentToThem) {
+                if (isAccepted) {
+                  rightLabel = 'break'; rightAction = 'break';
+                  rightBg = '#333'; rightColor = '#777'; rightCursor = 'pointer';
+                } else if (isPending) {
                   rightLabel = 'rescind'; rightAction = 'rescind';
                   rightBg = '#333'; rightColor = '#777'; rightCursor = 'pointer';
                 } else if (theySentToMe) {
                   rightLabel = 'accept'; rightAction = 'accept';
-                  rightBg = '#666'; rightColor = 'white'; rightCursor = 'pointer';
+                  rightBg = '#444'; rightColor = 'white'; rightCursor = 'pointer';
                 } else {
                   rightLabel = 'send'; rightAction = 'send';
                   rightBg = '#666'; rightColor = 'white'; rightCursor = 'pointer';
                 }
 
+                const isRescind = isPending;
                 return (
                   <div key={playerId} style={{
                     marginBottom: isLastItem ? '0px' : '9px', height: '24px',
                     border: '1px solid white', display: 'flex'
                   }}>
-                    <button
-                      style={{
-                        width: '50%', height: '100%', backgroundColor: 'black',
-                        color: 'white', border: 'none',
-                        borderRight: '1px solid white', fontSize: '15px', fontWeight: 'normal',
-                        cursor: 'default'
-                      }}
-                    >
-                      <span style={{ color }}>{teamNum}</span> {teamName}
-                    </button>
-                    <button
-                      onClick={() => handleAllianceAction(idx, rightAction)}
-                      style={{
-                        width: '50%', height: '100%', backgroundColor: rightBg,
-                        color: rightColor, border: 'none', fontSize: '15px', fontWeight: 'normal',
-                        cursor: rightCursor, transition: 'all 0.2s ease'
-                      }}
-                    >
-                      {rightLabel}
-                    </button>
+                    {isAccepted ? (
+                      <>
+                        <button
+                          onClick={() => handleAllianceAction(idx, rightAction)}
+                          style={{
+                            width: '50%', height: '100%', backgroundColor: rightBg,
+                            color: rightColor, border: 'none', fontSize: '15px', fontWeight: 'normal',
+                            cursor: rightCursor, transition: 'all 0.2s ease',
+                            borderRight: '1px solid white'
+                          }}
+                        >
+                          {rightLabel}
+                        </button>
+                        <button
+                          style={{
+                            width: '50%', height: '100%', backgroundColor: 'black',
+                            color: 'white', border: 'none', fontSize: '15px', fontWeight: 'normal',
+                            cursor: 'default'
+                          }}
+                        >
+                          <span style={{ color }}>{teamNum}</span> {teamName}
+                        </button>
+                      </>
+                    ) : isRescind ? (
+                      <>
+                        <button
+                          onClick={() => handleAllianceAction(idx, rightAction)}
+                          style={{
+                            width: '50%', height: '100%', backgroundColor: rightBg,
+                            color: rightColor, border: 'none', fontSize: '15px', fontWeight: 'normal',
+                            cursor: rightCursor, transition: 'all 0.2s ease',
+                            borderRight: '1px solid white'
+                          }}
+                        >
+                          {rightLabel}
+                        </button>
+                        <button
+                          style={{
+                            width: '50%', height: '100%', backgroundColor: 'black',
+                            color: 'white', border: 'none', fontSize: '15px', fontWeight: 'normal',
+                            cursor: 'default'
+                          }}
+                        >
+                          <span style={{ color }}>{teamNum}</span> {teamName}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          style={{
+                            width: '50%', height: '100%', backgroundColor: 'black',
+                            color: 'white', border: 'none',
+                            borderRight: '1px solid white', fontSize: '15px', fontWeight: 'normal',
+                            cursor: 'default'
+                          }}
+                        >
+                          <span style={{ color }}>{teamNum}</span> {teamName}
+                        </button>
+                        <button
+                          onClick={() => handleAllianceAction(idx, rightAction)}
+                          style={{
+                            width: '50%', height: '100%', backgroundColor: rightBg,
+                            color: rightColor, border: 'none', fontSize: '15px', fontWeight: 'normal',
+                            cursor: rightCursor, transition: 'all 0.2s ease'
+                          }}
+                        >
+                          {rightLabel}
+                        </button>
+                      </>
+                    )}
                   </div>
                 );
               })}
@@ -3023,7 +3101,8 @@ const GlobeWrapper = ({
             const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
             if (valid.length > 0 && valid.every(c => owned.has(c))) completedRegions += valid.length;
           });
-          return { handsWon: 0, completedRegions, handsWonScore: 0, unificationScore: 0, alliancePenalty: 0, total: 0 };
+          const alliancePenalty = alliancePenalties[playerId] || 0;
+          return { handsWon: 0, completedRegions, handsWonScore: 0, unificationScore: 0, alliancePenalty, total: -alliancePenalty };
         };
         const players = Object.entries(teamColors);
         const font = { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', fontSize: '15px', fontWeight: 'normal' };
@@ -3082,6 +3161,7 @@ function App() {
   const [timerDuration, setTimerDuration] = useState(10);
   const [biddingTimerDuration, setBiddingTimerDuration] = useState(20);
   const [showSettings, setShowSettings] = useState(false);
+  const [eclipseEnabled, setEclipseEnabled] = useState(true);
   const [viewedPlayer, setViewedPlayer] = useState(0);
   const [playerCountries, setPlayerCountries] = useState({
     player1: [],
@@ -3345,6 +3425,15 @@ function App() {
                 minWidth: '200px'
               }}>
                 <div style={{ fontSize: '13px', color: '#eee', fontWeight: 'bold' }}>Settings</div>
+                <label style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={eclipseEnabled}
+                    onChange={e => setEclipseEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  Eclipse
+                </label>
               </div>
             )}
 
@@ -3496,6 +3585,7 @@ function App() {
           onPlayerChange={setCurrentPlayer}
           viewedPlayer={viewedPlayer}
           onViewedPlayerChange={setViewedPlayer}
+          eclipseEnabled={eclipseEnabled}
         />
       </main>
     </div>
