@@ -1582,7 +1582,10 @@ const GlobeWrapper = ({
   onPlayerChange,
   viewedPlayer = 0,
   onViewedPlayerChange,
-  eclipseEnabled = true
+  eclipseEnabled = true,
+  onConsumePlayedCards,
+  playTimerDuration = 20,
+  cardsToPlay = 1
 }) => {
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
@@ -1605,6 +1608,13 @@ const GlobeWrapper = ({
   const [myBidCategory, setMyBidCategory] = useState('gdp');
   const [myEclipseRegion, setMyEclipseRegion] = useState('Africa');
   const [eclipseRegion, setEclipseRegion] = useState('Africa');
+  const [playedCards, setPlayedCards] = useState({}); // { playerIdx: [code, ...] }
+  const [playCurrentPlayer, setPlayCurrentPlayer] = useState(0);
+  const [handsWon, setHandsWon] = useState({}); // { player1: 0, ... }
+  const [playRoundWinner, setPlayRoundWinner] = useState(null);
+  const [playTimerCycle, setPlayTimerCycle] = useState(0);
+  const [animatingPlayCode, setAnimatingPlayCode] = useState(null);
+  const playCardClickPosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const [biddingTimerCycle, setBiddingTimerCycle] = useState(0);
   const [biddingWinner, setBiddingWinner] = useState(null); // {teamIdx, amount, category}
   const [biddingLog, setBiddingLog] = useState([]); // [{teamIdx, type:'bid'|'pass'|'win'|'nowin', amount, category}]
@@ -2112,6 +2122,81 @@ const GlobeWrapper = ({
     setBiddingTimerCycle(c => c + 1);
   }, [teamColors, biddingCurrentBidderIdx, biddingHighBid, myBidAmount, myBidCategory, myEclipseRegion]);
 
+  const getCountryValue = useCallback((code) => {
+    const feat = countries.features.find(f => getCountryCode(f) === code);
+    if (!feat) return 0;
+    const dataset = AVAILABLE_DATASETS[currentMode];
+    return dataset ? dataset.getter(feat) : 0;
+  }, [countries.features, currentMode]);
+
+  // playedCards: { playerIdx: countryCode } — 1 card per team per round
+  const resolvePlayCard = useCallback((countryCode, currentPlayed, clickEvent) => {
+    if (clickEvent) playCardClickPosRef.current = { x: clickEvent.clientX, y: clickEvent.clientY };
+    setAnimatingPlayCode(countryCode);
+    const numTeams = Object.keys(teamColors).length;
+    const newPlayed = { ...currentPlayed, [playCurrentPlayer]: countryCode };
+    setPlayedCards(newPlayed);
+    setPlayTimerCycle(c => c + 1);
+    if (Object.keys(newPlayed).length === numTeams) {
+      const areaGetter = AVAILABLE_DATASETS['area']?.getter;
+      let winnerIdx = 0;
+      let winnerVal = -Infinity;
+      let winnerArea = -Infinity;
+      Object.entries(newPlayed).forEach(([idxStr, code]) => {
+        const val = getCountryValue(code);
+        const feat = countries.features.find(f => getCountryCode(f) === code);
+        const area = (areaGetter && feat) ? areaGetter(feat) : 0;
+        if (val > winnerVal || (val === winnerVal && area > winnerArea)) {
+          winnerVal = val; winnerArea = area; winnerIdx = Number(idxStr);
+        }
+      });
+      setPlayRoundWinner(winnerIdx);
+      const teamIds = Object.keys(teamColors);
+      setHandsWon(prev => ({ ...prev, [teamIds[winnerIdx]]: (prev[teamIds[winnerIdx]] || 0) + 1 }));
+    } else {
+      setPlayCurrentPlayer(prev => (prev + 1) % numTeams);
+    }
+  }, [teamColors, playCurrentPlayer, getCountryValue]);
+
+  const handlePlayCard = useCallback((countryCode, clickEvent) => {
+    if (gamePhase !== 'play') return;
+    if (viewedPlayer !== playCurrentPlayer) return;
+    if (playedCards[playCurrentPlayer] !== undefined) return;
+    resolvePlayCard(countryCode, playedCards, clickEvent);
+  }, [gamePhase, viewedPlayer, playCurrentPlayer, playedCards, resolvePlayCard]);
+
+  const autoPlayCardRef = useRef(null);
+  const autoPlayCard = useCallback(() => {
+    const playerKey = `player${playCurrentPlayer + 1}`;
+    const alreadyPlayed = new Set(Object.values(playedCards));
+    const available = (playerCountries[playerKey] || []).filter(c => !alreadyPlayed.has(c));
+    if (!available.length) return;
+    resolvePlayCard(available[Math.floor(Math.random() * available.length)], playedCards, null);
+  }, [playCurrentPlayer, playedCards, playerCountries, resolvePlayCard]);
+  useEffect(() => { autoPlayCardRef.current = autoPlayCard; }, [autoPlayCard]);
+
+  // "Next Round" within play phase — consume this round's cards, advance round counter
+  const [playRoundsCompleted, setPlayRoundsCompleted] = useState(0);
+
+  const resetPlayRound = useCallback(() => {
+    if (onConsumePlayedCards) onConsumePlayedCards(playedCards);
+    setPlayRoundsCompleted(prev => prev + 1);
+    setPlayedCards({});
+    setPlayRoundWinner(null);
+    setPlayCurrentPlayer(0);
+    setPlayTimerCycle(c => c + 1);
+  }, [onConsumePlayedCards, playedCards]);
+
+  useEffect(() => {
+    if (gamePhase === 'play') {
+      setPlayedCards({});
+      setPlayRoundWinner(null);
+      setPlayCurrentPlayer(0);
+      setPlayRoundsCompleted(0);
+      setPlayTimerCycle(c => c + 1);
+    }
+  }, [gamePhase]);
+
   const biddingPassRef = useRef(null);
   useEffect(() => { biddingPassRef.current = handleBiddingPass; }, [handleBiddingPass]);
 
@@ -2132,6 +2217,24 @@ const GlobeWrapper = ({
     };
     return () => { cancelled = true; anim.cancel(); };
   }, [biddingCurrentBidderIdx, biddingTimerDuration, gamePhase, biddingTimerCycle, biddingWinner]);
+
+  // Play phase timer — auto-plays random card on expiry
+  useEffect(() => {
+    if (gamePhase !== 'play' || playRoundWinner !== null) return;
+    const el = timerFillRef.current;
+    if (!el) return;
+    el.getAnimations().forEach(a => a.cancel());
+    let cancelled = false;
+    const anim = el.animate(
+      [{ clipPath: 'inset(0 0% 0 0)' }, { clipPath: 'inset(0 100% 0 0)' }],
+      { duration: playTimerDuration * 1000, fill: 'forwards', easing: 'linear', composite: 'replace' }
+    );
+    anim.onfinish = () => {
+      if (cancelled) return;
+      autoPlayCardRef.current?.();
+    };
+    return () => { cancelled = true; anim.cancel(); };
+  }, [playCurrentPlayer, playTimerDuration, gamePhase, playTimerCycle, playRoundWinner]);
 
   // Optimized country click handler
   const handleCountryClick = useCallback((country, event) => {
@@ -2425,7 +2528,7 @@ const GlobeWrapper = ({
             style={{
               width: '100%',
               height: '100%',
-              background: viewedPlayer !== currentPlayer
+              background: viewedPlayer !== (gamePhase === 'bidding' ? biddingCurrentBidderIdx : gamePhase === 'play' ? playCurrentPlayer : currentPlayer)
                 ? 'rgba(180,180,180,0.45)'
                 : 'linear-gradient(90deg, white, #FF80FF, #0000FF, #80FFFF, white)',
               willChange: 'clip-path',
@@ -2513,7 +2616,8 @@ const GlobeWrapper = ({
           }}>
             {Object.entries(teamColors).map(([id, color], idx) => {
               const activeIdx = gamePhase === 'bidding' ? biddingCurrentBidderIdx :
-                                gamePhase === 'country_selection' ? currentPlayer : -1;
+                                gamePhase === 'country_selection' ? currentPlayer :
+                                gamePhase === 'play' ? playCurrentPlayer : -1;
               const isActive = idx === activeIdx;
               return (
                 <span key={id} style={{
@@ -2651,6 +2755,75 @@ const GlobeWrapper = ({
               </div>
             );
           })()}
+
+          {/* Play Panel */}
+          {gamePhase === 'play' && (() => {
+            const numTeams = Object.keys(teamColors).length;
+            const allPlaced = Object.keys(playedCards).length === numTeams;
+            const winnerColor = playRoundWinner !== null ? Object.values(teamColors)[playRoundWinner] : null;
+            const winnerName = winnerColor ? getTeamColorName(winnerColor) : null;
+            const curColor = Object.values(teamColors)[playCurrentPlayer] || '#fff';
+            const curName = getTeamColorName(curColor);
+            const GAP = 8;
+            const colStep = HEX_COL_STEP + GAP;
+            const playFeatures = Object.entries(teamColors).map(([_pid, _col], idx) => {
+              const code = playedCards[idx];
+              return code ? countries.features.find(f => getCountryCode(f) === code) || null : null;
+            });
+            const placedCount = playFeatures.filter(Boolean).length;
+            const gridW = placedCount > 0 ? placedCount * colStep + HEX_W - colStep : 0;
+            let placedCol = 0;
+            return (
+              <div style={{ borderTop: '1px solid white', backgroundColor: '#1a1a1a' }}>
+                <div style={{ padding: '5px 14px', fontSize: '13px', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>
+                    {allPlaced && playRoundWinner !== null
+                      ? <span style={{ color: winnerColor, fontWeight: 'bold' }}>{winnerName} wins!</span>
+                      : <><span style={{ color: curColor }}>{curName}</span><span style={{ color: '#aaa' }}> to place</span></>
+                    }
+                  </span>
+                  <span style={{ color: '#666', fontSize: '12px' }}>{playRoundsCompleted + 1}/{cardsToPlay}</span>
+                </div>
+                {placedCount > 0 && (
+                  <div style={{ padding: '8px 14px', position: 'relative', height: HEX_H + 16, width: gridW, marginLeft: Math.max(0, (352 - gridW) / 2) }}>
+                    {Object.entries(teamColors).map(([playerId, _color], idx) => {
+                      const feat = playFeatures[idx];
+                      if (!feat) return null;
+                      const codes = playedCards[idx] || [];
+                      const code = codes[codes.length - 1];
+                      const isAnimating = code === animatingPlayCode;
+                      const left = placedCol * colStep;
+                      placedCol++;
+                      const card = (
+                        <CountryHexCard
+                          feature={feat}
+                          allFeatures={countries.features}
+                          clipId={`play-${idx}`}
+                          onClick={() => {}}
+                        />
+                      );
+                      return (
+                        <div key={playerId} style={{ position: 'absolute', left }}>
+                          {isAnimating
+                            ? <FlyInCard clickPos={playCardClickPosRef.current} onDone={() => setAnimatingPlayCode(null)}>{card}</FlyInCard>
+                            : card
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {allPlaced && playRoundWinner !== null && (
+                  <div style={{ padding: '4px 14px 10px' }}>
+                    <button onClick={resetPlayRound} style={{
+                      width: '100%', padding: '4px 0', background: '#333', color: 'white',
+                      border: '1px solid rgba(255,255,255,0.3)', borderRadius: '3px', cursor: 'pointer', fontSize: '13px'
+                    }}>Next Round</button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Lime Label, Search, and Owned Cards */}
@@ -2759,7 +2932,8 @@ const GlobeWrapper = ({
           {/* Owned countries grid — visible when search is closed, ordered by claim time */}
           {!searchQuery && (() => {
             const playerKey = `player${viewedPlayer + 1}`;
-            const ownedCodes = playerCountries[playerKey] || [];
+            const playedByThisPlayer = gamePhase === 'play' ? playedCards[viewedPlayer] : null;
+            const ownedCodes = (playerCountries[playerKey] || []).filter(c => c !== playedByThisPlayer);
             if (!ownedCodes.length) return null;
             // Preserve claim order by mapping codes → features (not filtering features)
             const ownedFeatures = ownedCodes
@@ -2807,7 +2981,9 @@ const GlobeWrapper = ({
                             feature={f}
                             allFeatures={countries.features}
                             clipId={`owned-${ri}-${ci}`}
-                            onClick={() => {}}
+                            onClick={gamePhase === 'play' && viewedPlayer === playCurrentPlayer && playedCards[playCurrentPlayer] === undefined
+                              ? (e) => handlePlayCard(code, e)
+                              : () => {}}
                           />
                         );
                         return (
@@ -3102,7 +3278,8 @@ const GlobeWrapper = ({
             if (valid.length > 0 && valid.every(c => owned.has(c))) completedRegions += valid.length;
           });
           const alliancePenalty = alliancePenalties[playerId] || 0;
-          return { handsWon: 0, completedRegions, handsWonScore: 0, unificationScore: 0, alliancePenalty, total: -alliancePenalty };
+          const handsWonCount = handsWon[playerId] || 0;
+          return { handsWon: handsWonCount, completedRegions, handsWonScore: handsWonCount, unificationScore: 0, alliancePenalty, total: handsWonCount - alliancePenalty };
         };
         const players = Object.entries(teamColors);
         const font = { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', fontSize: '15px', fontWeight: 'normal' };
@@ -3160,6 +3337,10 @@ function App() {
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [timerDuration, setTimerDuration] = useState(10);
   const [biddingTimerDuration, setBiddingTimerDuration] = useState(20);
+  const [playTimerDuration, setPlayTimerDuration] = useState(20);
+  const [cardsToPlay, setCardsToPlay] = useState(1);
+  const [cardsInHand, setCardsInHand] = useState(5);
+  const [numRounds, setNumRounds] = useState(3);
   const [showSettings, setShowSettings] = useState(false);
   const [eclipseEnabled, setEclipseEnabled] = useState(true);
   const [viewedPlayer, setViewedPlayer] = useState(0);
@@ -3224,6 +3405,20 @@ function App() {
     setPlayerCountries({ player1: [], player2: [], player3: [] });
     setCurrentPlayer(0);
     setGamePhase('country_selection');
+  }, []);
+
+  const handleConsumePlayedCards = useCallback((playedCards) => {
+    const teamIds = ['player1', 'player2', 'player3'];
+    const consumed = new Set(Object.values(playedCards));
+    setPlayerCountries(prev => {
+      const next = { ...prev };
+      Object.entries(playedCards).forEach(([idxStr, code]) => {
+        const pid = teamIds[Number(idxStr)];
+        if (pid) next[pid] = (next[pid] || []).filter(c => c !== code);
+      });
+      return next;
+    });
+    setSelectedCountries(prev => prev.filter(c => !consumed.has(c)));
   }, []);
 
   // Dataset selection handlers
@@ -3426,14 +3621,24 @@ function App() {
               }}>
                 <div style={{ fontSize: '13px', color: '#eee', fontWeight: 'bold' }}>Settings</div>
                 <label style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={eclipseEnabled}
-                    onChange={e => setEclipseEnabled(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
+                  <input type="checkbox" checked={eclipseEnabled} onChange={e => setEclipseEnabled(e.target.checked)} style={{ cursor: 'pointer' }} />
                   Eclipse
                 </label>
+                {[
+                  { label: 'Play Timer (s)', val: playTimerDuration, set: setPlayTimerDuration, min: 5, max: 120 },
+                  { label: 'Cards to play', val: cardsToPlay, set: setCardsToPlay, min: 1, max: 10 },
+                  { label: 'Cards in hand', val: cardsInHand, set: setCardsInHand, min: 1, max: 20 },
+                  { label: '# of rounds', val: numRounds, set: setNumRounds, min: 1, max: 20 },
+                ].map(({ label, val, set, min, max }) => (
+                  <label key={label} style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    {label}
+                    <input
+                      type="number" min={min} max={max} value={val}
+                      onChange={e => set(Math.min(max, Math.max(min, Number(e.target.value))))}
+                      style={{ width: '50px', padding: '2px 4px', backgroundColor: '#444', color: 'white', border: '1px solid #666', borderRadius: '4px', fontSize: '12px' }}
+                    />
+                  </label>
+                ))}
               </div>
             )}
 
@@ -3586,6 +3791,9 @@ function App() {
           viewedPlayer={viewedPlayer}
           onViewedPlayerChange={setViewedPlayer}
           eclipseEnabled={eclipseEnabled}
+          onConsumePlayedCards={handleConsumePlayedCards}
+          playTimerDuration={playTimerDuration}
+          cardsToPlay={cardsToPlay}
         />
       </main>
     </div>
