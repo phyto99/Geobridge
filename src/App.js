@@ -1447,10 +1447,10 @@ const HEX_ODD_OFFSET = Math.round(HEX_COL_STEP / 2); // odd-row horizontal shift
 const HEX_H_OVERLAP  = HEX_W - HEX_COL_STEP;         // negative margin per item in row
 const HEX_V_OVERLAP  = HEX_H - HEX_ROW_STEP;         // negative margin between rows
 
-const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) => {
+const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick, modeValue }) => {
   const name = feature.properties?.NAME || feature.properties?.ADMIN || 'Unknown';
   const continent = getFeatureContinent(feature);
-  const SVG = 56; // slightly smaller circle, leaves more room for text
+  const SVG = modeValue != null ? 48 : 56;
 
   const { continentPath, countryPath, hx, hy } = useMemo(() => {
     const continentFeats = allFeatures.filter(f => getFeatureContinent(f) === continent);
@@ -1510,19 +1510,33 @@ const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick }) =>
             {countryPath && <path d={countryPath} fill="white" />}
           </g>
         </svg>
-        {/* fixed-height text zone so 1-line names center at same level as 2-line names */}
+        {/* text zone */}
         <div style={{
-          height: '22px', display:'flex', alignItems:'center', justifyContent:'center',
-          maxWidth: HEX_W * 0.55,
+          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end',
+          maxWidth: HEX_W * 0.7, gap: '0px'
         }}>
+          {modeValue != null && (
+            <div style={{
+              fontSize:'10px', color:'white', textAlign:'center',
+              fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+              lineHeight:1.1, whiteSpace:'nowrap'
+            }}>
+              {modeValue}
+            </div>
+          )}
           <div style={{
-            fontSize:'9px', color:'white', textAlign:'center',
-            fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            lineHeight:1.2,
-            overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2,
-            WebkitBoxOrient:'vertical'
+            height: '18px', display:'flex', alignItems:'center', justifyContent:'center',
+            maxWidth: HEX_W * 0.55,
           }}>
-            {name}
+            <div style={{
+              fontSize:'9px', color:'white', textAlign:'center',
+              fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+              lineHeight:1.1,
+              overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2,
+              WebkitBoxOrient:'vertical'
+            }}>
+              {name}
+            </div>
           </div>
         </div>
       </div>
@@ -1554,7 +1568,7 @@ const FlyInCard = ({ clickPos, onDone, children }) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ECLIPSE_REGIONS = ['Africa', 'Asia', 'Europe', 'N. America', 'S. America', 'Oceania'];
+const ECLIPSE_REGIONS = ['Europe', 'N. America', 'S. America', 'Africa', 'Asia', 'Oceania'];
 
 const BID_CATEGORIES = [
   { id: 'gdp', label: 'GDP' },
@@ -1606,14 +1620,15 @@ const GlobeWrapper = ({
   const [biddingConsecPasses, setBiddingConsecPasses] = useState(0);
   const [myBidAmount, setMyBidAmount] = useState(1);
   const [myBidCategory, setMyBidCategory] = useState('gdp');
-  const [myEclipseRegion, setMyEclipseRegion] = useState('Africa');
-  const [eclipseRegion, setEclipseRegion] = useState('Africa');
+  const [myEclipseRegion, setMyEclipseRegion] = useState('Europe');
+  const [eclipseRegion, setEclipseRegion] = useState('Europe');
   const [playedCards, setPlayedCards] = useState({}); // { playerIdx: [code, ...] }
   const [playCurrentPlayer, setPlayCurrentPlayer] = useState(0);
   const [handsWon, setHandsWon] = useState({}); // { player1: 0, ... }
   const [playRoundWinner, setPlayRoundWinner] = useState(null);
   const [playTimerCycle, setPlayTimerCycle] = useState(0);
   const [animatingPlayCode, setAnimatingPlayCode] = useState(null);
+  const [playCountdown, setPlayCountdown] = useState(null);
   const playCardClickPosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const [biddingTimerCycle, setBiddingTimerCycle] = useState(0);
   const [biddingWinner, setBiddingWinner] = useState(null); // {teamIdx, amount, category}
@@ -2129,6 +2144,14 @@ const GlobeWrapper = ({
     return dataset ? dataset.getter(feat) : 0;
   }, [countries.features, currentMode]);
 
+  const formatCountryValue = useCallback((feat) => {
+    if (!feat) return null;
+    const dataset = AVAILABLE_DATASETS[currentMode];
+    if (!dataset) return null;
+    const val = dataset.getter(feat);
+    return val ? (dataset.format ? dataset.format(val) : String(val)) : null;
+  }, [currentMode]);
+
   // playedCards: { playerIdx: countryCode } — 1 card per team per round
   const resolvePlayCard = useCallback((countryCode, currentPlayed, clickEvent) => {
     if (clickEvent) playCardClickPosRef.current = { x: clickEvent.clientX, y: clickEvent.clientY };
@@ -2178,14 +2201,17 @@ const GlobeWrapper = ({
   // "Next Round" within play phase — consume this round's cards, advance round counter
   const [playRoundsCompleted, setPlayRoundsCompleted] = useState(0);
 
+  const resetPlayRoundRef = useRef(null);
   const resetPlayRound = useCallback(() => {
     if (onConsumePlayedCards) onConsumePlayedCards(playedCards);
     setPlayRoundsCompleted(prev => prev + 1);
     setPlayedCards({});
     setPlayRoundWinner(null);
     setPlayCurrentPlayer(0);
+    setPlayCountdown(null);
     setPlayTimerCycle(c => c + 1);
   }, [onConsumePlayedCards, playedCards]);
+  useEffect(() => { resetPlayRoundRef.current = resetPlayRound; }, [resetPlayRound]);
 
   useEffect(() => {
     if (gamePhase === 'play') {
@@ -2193,9 +2219,27 @@ const GlobeWrapper = ({
       setPlayRoundWinner(null);
       setPlayCurrentPlayer(0);
       setPlayRoundsCompleted(0);
+      setPlayCountdown(null);
       setPlayTimerCycle(c => c + 1);
     }
   }, [gamePhase]);
+
+  // Countdown after round winner set — 5s then auto-advance
+  useEffect(() => {
+    if (playRoundWinner === null) return;
+    setPlayCountdown(5);
+    const interval = setInterval(() => {
+      setPlayCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          resetPlayRoundRef.current?.();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [playRoundWinner]);
 
   const biddingPassRef = useRef(null);
   useEffect(() => { biddingPassRef.current = handleBiddingPass; }, [handleBiddingPass]);
@@ -2778,7 +2822,7 @@ const GlobeWrapper = ({
                 <div style={{ padding: '5px 14px', fontSize: '13px', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>
                     {allPlaced && playRoundWinner !== null
-                      ? <span style={{ color: winnerColor, fontWeight: 'bold' }}>{winnerName} wins!</span>
+                      ? <span key={playRoundWinner} style={{ color: winnerColor, fontWeight: 'bold', animation: 'fade-in 0.6s ease forwards' }}>{winnerName} wins!</span>
                       : <><span style={{ color: curColor }}>{curName}</span><span style={{ color: '#aaa' }}> to place</span></>
                     }
                   </span>
@@ -2800,6 +2844,7 @@ const GlobeWrapper = ({
                           allFeatures={countries.features}
                           clipId={`play-${idx}`}
                           onClick={() => {}}
+                          modeValue={formatCountryValue(feat)}
                         />
                       );
                       return (
@@ -2818,7 +2863,7 @@ const GlobeWrapper = ({
                     <button onClick={resetPlayRound} style={{
                       width: '100%', padding: '4px 0', background: '#333', color: 'white',
                       border: '1px solid rgba(255,255,255,0.3)', borderRadius: '3px', cursor: 'pointer', fontSize: '13px'
-                    }}>Next Round</button>
+                    }}>Next Round{playCountdown != null ? ` ${playCountdown}s` : ''}</button>
                   </div>
                 )}
               </div>
@@ -2984,6 +3029,7 @@ const GlobeWrapper = ({
                             onClick={gamePhase === 'play' && viewedPlayer === playCurrentPlayer && playedCards[playCurrentPlayer] === undefined
                               ? (e) => handlePlayCard(code, e)
                               : () => {}}
+                            modeValue={gamePhase === 'play' ? formatCountryValue(f) : null}
                           />
                         );
                         return (
@@ -3339,7 +3385,7 @@ function App() {
   const [biddingTimerDuration, setBiddingTimerDuration] = useState(20);
   const [playTimerDuration, setPlayTimerDuration] = useState(20);
   const [cardsToPlay, setCardsToPlay] = useState(1);
-  const [cardsInHand, setCardsInHand] = useState(5);
+  const [extraCards, setExtraCards] = useState(1);
   const [numRounds, setNumRounds] = useState(3);
   const [showSettings, setShowSettings] = useState(false);
   const [eclipseEnabled, setEclipseEnabled] = useState(true);
@@ -3464,6 +3510,10 @@ function App() {
           }
 
           @keyframes scoreboard-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+          @keyframes fade-in {
             from { opacity: 0; }
             to   { opacity: 1; }
           }
@@ -3626,8 +3676,8 @@ function App() {
                 </label>
                 {[
                   { label: 'Play Timer (s)', val: playTimerDuration, set: setPlayTimerDuration, min: 5, max: 120 },
-                  { label: 'Cards to play', val: cardsToPlay, set: setCardsToPlay, min: 1, max: 10 },
-                  { label: 'Cards in hand', val: cardsInHand, set: setCardsInHand, min: 1, max: 20 },
+                  { label: 'Cards per player', val: cardsToPlay, set: setCardsToPlay, min: 1, max: 20 },
+                  { label: 'Extra cards', val: extraCards, set: setExtraCards, min: 0, max: 10 },
                   { label: '# of rounds', val: numRounds, set: setNumRounds, min: 1, max: 20 },
                 ].map(({ label, val, set, min, max }) => (
                   <label key={label} style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
