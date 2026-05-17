@@ -1570,6 +1570,19 @@ const FlyInCard = ({ clickPos, onDone, children }) => {
 
 const ECLIPSE_REGIONS = ['Europe', 'N. America', 'S. America', 'Africa', 'Asia', 'Oceania'];
 
+const ECLIPSE_REGION_COUNTRIES = {
+  'Europe':     new Set([...REGIONS.southwest_europe, ...REGIONS.south_europe, ...REGIONS.central_europe,
+                         ...REGIONS.west_europe, ...REGIONS.north_europe, ...REGIONS.southeast_europe,
+                         ...REGIONS.east_europe]),
+  'N. America': new Set([...REGIONS.north_america, ...REGIONS.central_america_caribbean]),
+  'S. America': new Set(REGIONS.south_america),
+  'Africa':     new Set([...REGIONS.north_africa, ...REGIONS.central_africa, ...REGIONS.east_africa,
+                         ...REGIONS.west_africa, ...REGIONS.south_africa]),
+  'Asia':       new Set([...REGIONS.middle_east, ...REGIONS.indian_subcontinent,
+                         ...REGIONS.central_asia, ...REGIONS.eastern_asia]),
+  'Oceania':    new Set(REGIONS.oceania),
+};
+
 const BID_CATEGORIES = [
   { id: 'gdp', label: 'GDP' },
   { id: 'area', label: 'Area' },
@@ -1600,7 +1613,11 @@ const GlobeWrapper = ({
   onConsumePlayedCards,
   playTimerDuration = 20,
   cardsToPlay = 1,
-  onPhaseChange
+  onPhaseChange,
+  currentRound = 1,
+  numRounds = 1,
+  alliancePenaltyAmount = 5,
+  bidPenaltyAmount = 20
 }) => {
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
@@ -2165,24 +2182,33 @@ const GlobeWrapper = ({
     setPlayTimerCycle(c => c + 1);
     if (Object.keys(newPlayed).length === numTeams) {
       const areaGetter = AVAILABLE_DATASETS['area']?.getter;
-      let winnerIdx = 0;
-      let winnerVal = -Infinity;
-      let winnerArea = -Infinity;
-      Object.entries(newPlayed).forEach(([idxStr, code]) => {
-        const val = getCountryValue(code);
-        const feat = countries.features.find(f => getCountryCode(f) === code);
-        const area = (areaGetter && feat) ? areaGetter(feat) : 0;
-        if (val > winnerVal || (val === winnerVal && area > winnerArea)) {
-          winnerVal = val; winnerArea = area; winnerIdx = Number(idxStr);
-        }
-      });
+      const eclipseSet = eclipseEnabled ? (ECLIPSE_REGION_COUNTRIES[eclipseRegion] ?? null) : null;
+      const inRegion = eclipseSet
+        ? Object.entries(newPlayed).filter(([, code]) => eclipseSet.has(code))
+        : [];
+      let winnerIdx;
+      if (inRegion.length === 1) {
+        winnerIdx = Number(inRegion[0][0]);
+      } else {
+        winnerIdx = 0;
+        let winnerVal = -Infinity;
+        let winnerArea = -Infinity;
+        Object.entries(newPlayed).forEach(([idxStr, code]) => {
+          const val = getCountryValue(code);
+          const feat = countries.features.find(f => getCountryCode(f) === code);
+          const area = (areaGetter && feat) ? areaGetter(feat) : 0;
+          if (val > winnerVal || (val === winnerVal && area > winnerArea)) {
+            winnerVal = val; winnerArea = area; winnerIdx = Number(idxStr);
+          }
+        });
+      }
       setPlayRoundWinner(winnerIdx);
       const teamIds = Object.keys(teamColors);
       setHandsWon(prev => ({ ...prev, [teamIds[winnerIdx]]: (prev[teamIds[winnerIdx]] || 0) + 1 }));
     } else {
       setPlayCurrentPlayer(prev => (prev + 1) % numTeams);
     }
-  }, [teamColors, playCurrentPlayer, getCountryValue]);
+  }, [teamColors, playCurrentPlayer, getCountryValue, eclipseEnabled, eclipseRegion]);
 
   const handlePlayCard = useCallback((countryCode, clickEvent) => {
     if (gamePhase !== 'play') return;
@@ -2207,13 +2233,30 @@ const GlobeWrapper = ({
   const resetPlayRoundRef = useRef(null);
   const resetPlayRound = useCallback(() => {
     if (onConsumePlayedCards) onConsumePlayedCards(playedCards);
-    setPlayRoundsCompleted(prev => prev + 1);
+    setPlayRoundsCompleted(prev => {
+      const next = prev + 1;
+      if (next >= cardsToPlay) {
+        const bidWinner = biddingWinnerRef.current;
+        if (bidWinner?.teamIdx >= 0) {
+          const teamIds = Object.keys(teamColors);
+          const winnerId = teamIds[bidWinner.teamIdx];
+          setHandsWon(currentHandsWon => {
+            if (winnerId && (currentHandsWon[winnerId] || 0) < bidWinner.amount) {
+              setBidPenalties(p => ({ ...p, [winnerId]: (p[winnerId] || 0) + bidPenaltyAmount }));
+            }
+            return currentHandsWon;
+          });
+        }
+        setTimeout(() => onPhaseChange?.('game_over'), 1500);
+      }
+      return next;
+    });
     setPlayedCards({});
     setPlayRoundWinner(null);
     setPlayCurrentPlayer(0);
     setPlayCountdown(null);
     setPlayTimerCycle(c => c + 1);
-  }, [onConsumePlayedCards, playedCards]);
+  }, [onConsumePlayedCards, playedCards, cardsToPlay, teamColors, bidPenaltyAmount]);
   useEffect(() => { resetPlayRoundRef.current = resetPlayRound; }, [resetPlayRound]);
 
   useEffect(() => {
@@ -2475,6 +2518,8 @@ const GlobeWrapper = ({
   const [allianceDisplayStates, setAllianceDisplayStates] = useState({});
   // Alliance penalties: playerId → cumulative penalty points
   const [alliancePenalties, setAlliancePenalties] = useState({});
+  // Bid penalties: playerId → penalty points (applied when bid winner misses their bid)
+  const [bidPenalties, setBidPenalties] = useState({});
 
   // allianceKey: from viewedPlayer → targetIdx, or targetIdx → viewedPlayer
   const allianceKey = (fromIdx, toIdx) => `${fromIdx}-${toIdx}`;
@@ -2494,6 +2539,13 @@ const GlobeWrapper = ({
       setAlliancesSent(prev => ({ ...prev, [key]: true, [reverseKey]: true }));
       setAllianceDisplayStates(prev => ({ ...prev, [key]: true }));
       setTimeout(() => setAllianceDisplayStates(prev => ({ ...prev, [key]: false })), 5000);
+      const myId = teamIds[viewedPlayer];
+      const theirId = teamIds[targetIdx];
+      setAlliancePenalties(prev => ({
+        ...prev,
+        [myId]: (prev[myId] || 0) + alliancePenaltyAmount,
+        [theirId]: (prev[theirId] || 0) + alliancePenaltyAmount,
+      }));
     } else if (action === 'break') {
       setAlliancesSent(prev => ({ ...prev, [key]: false, [reverseKey]: false }));
       setAllianceDisplayStates(prev => ({ ...prev, [key]: false, [reverseKey]: false }));
@@ -2541,8 +2593,39 @@ const GlobeWrapper = ({
         pathResolution={2}
         pathTransitionDuration={0}
 
-        // Team color
-        atmosphereColor={Object.values(teamColors)[viewedPlayer] || 'cyan'}
+        // Team color (winner's color in game_over, otherwise viewed player's color)
+        atmosphereColor={(() => {
+          if (gamePhase === 'game_over') {
+            const teamIds = Object.keys(teamColors);
+            const hw = handsWon;
+            const maxHW = Math.max(0, ...teamIds.map(id => hw[id] || 0));
+            const maxCR = Math.max(0, ...teamIds.map(id => {
+              const owned = new Set(playerCountries[id] || []);
+              let cr = 0;
+              Object.values(REGIONS).forEach(list => {
+                const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
+                if (valid.length > 0 && valid.every(c => owned.has(c))) cr += valid.length;
+              });
+              return cr;
+            }));
+            let bestId = teamIds[0], bestTotal = -Infinity;
+            teamIds.forEach(id => {
+              const hw2 = handsWon[id] || 0;
+              const owned2 = new Set(playerCountries[id] || []);
+              let cr2 = 0;
+              Object.values(REGIONS).forEach(list => {
+                const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
+                if (valid.length > 0 && valid.every(c => owned2.has(c))) cr2 += valid.length;
+              });
+              const hws = maxHW > 0 ? Math.round((hw2 / maxHW) * 100) : 0;
+              const us = maxCR > 0 ? Math.round((cr2 / maxCR) * 100) : 0;
+              const total = hws + us - (alliancePenalties[id] || 0) - (bidPenalties[id] || 0);
+              if (total > bestTotal) { bestTotal = total; bestId = id; }
+            });
+            return teamColors[bestId] || 'cyan';
+          }
+          return Object.values(teamColors)[viewedPlayer] || 'cyan';
+        })()}
         atmosphereAltitude={0.5}
       />
 
@@ -2859,7 +2942,7 @@ const GlobeWrapper = ({
                       : <><span style={{ color: curColor }}>{curName}</span><span style={{ color: '#aaa' }}> to place</span></>
                     }
                   </span>
-                  <span style={{ color: '#666', fontSize: '12px' }}>{playRoundsCompleted + 1}/{cardsToPlay}</span>
+                  <span style={{ color: '#666', fontSize: '12px' }}>{playRoundsCompleted + 1}/{cardsToPlay}{numRounds > 1 ? ` · Round ${currentRound}/${numRounds}` : ''}</span>
                 </div>
                 {placedCount > 0 && (
                   <div style={{ padding: '8px 14px', position: 'relative', height: HEX_H + 16, width: gridW, marginLeft: Math.max(0, (352 - gridW) / 2) }}>
@@ -3338,6 +3421,64 @@ const GlobeWrapper = ({
         </div>
       </div>
 
+      {/* Game Over overlay */}
+      {gamePhase === 'game_over' && (() => {
+        const teamIds = Object.keys(teamColors);
+        const maxHW = Math.max(0, ...teamIds.map(id => handsWon[id] || 0));
+        const getRegionCount = (id) => {
+          const owned = new Set(playerCountries[id] || []);
+          let cr = 0;
+          Object.values(REGIONS).forEach(list => {
+            const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
+            if (valid.length > 0 && valid.every(c => owned.has(c))) cr += valid.length;
+          });
+          return cr;
+        };
+        const maxCR = Math.max(0, ...teamIds.map(getRegionCount));
+        const getTotal = (id) => {
+          const hw = handsWon[id] || 0;
+          const cr = getRegionCount(id);
+          const hws = maxHW > 0 ? Math.round((hw / maxHW) * 100) : 0;
+          const us = maxCR > 0 ? Math.round((cr / maxCR) * 100) : 0;
+          return hws + us - (alliancePenalties[id] || 0) - (bidPenalties[id] || 0);
+        };
+        let winnerId = teamIds[0];
+        let winnerTotal = -Infinity;
+        let runnerUpTotal = -Infinity;
+        teamIds.forEach(id => {
+          const t = getTotal(id);
+          if (t > winnerTotal) { runnerUpTotal = winnerTotal; winnerTotal = t; winnerId = id; }
+          else if (t > runnerUpTotal) { runnerUpTotal = t; }
+        });
+        const winnerColor = teamColors[winnerId] || 'cyan';
+        const colorName = getTeamColorName(winnerColor).toUpperCase();
+        const isUtterDefeat = winnerTotal - runnerUpTotal >= 150;
+        const font = { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' };
+        return (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 300,
+            backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexDirection: 'column', gap: '16px',
+            animation: 'scoreboard-in 0.4s ease forwards'
+          }}>
+            {isUtterDefeat ? (
+              <div style={{ ...font, fontSize: '72px', fontWeight: 'bold', color: 'white', letterSpacing: '0.08em', textShadow: `0 0 40px ${winnerColor}, 0 0 80px ${winnerColor}` }}>
+                UTTER DEFEAT
+              </div>
+            ) : (
+              <div style={{ ...font, fontSize: '72px', fontWeight: 'bold', letterSpacing: '0.08em', color: 'white' }}>
+                VICTORY{' '}
+                <span style={{ color: winnerColor, textShadow: `0 0 30px ${winnerColor}, 0 0 60px ${winnerColor}` }}>
+                  {colorName}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Scoreboard overlay */}
       {showScoreboard && (() => {
         const icons = ['✖', '★', '▲', '◆'];
@@ -3347,20 +3488,34 @@ const GlobeWrapper = ({
           { key: 'handsWonScore',            label: 'hands won score' },
           { key: 'unificationScore',         label: 'unification score' },
           { key: 'alliancePenalty',          label: 'alliance penalty' },
+          { key: 'bidPenalty',               label: 'bid penalty' },
           { key: 'total',                    label: 'total' },
         ];
-        const computeStats = (playerId) => {
+        const players = Object.entries(teamColors);
+        // Compute raw stats for all players first
+        const rawStats = {};
+        players.forEach(([playerId]) => {
           const owned = new Set(playerCountries[playerId] || []);
           let completedRegions = 0;
           Object.values(REGIONS).forEach(list => {
             const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
             if (valid.length > 0 && valid.every(c => owned.has(c))) completedRegions += valid.length;
           });
-          const alliancePenalty = alliancePenalties[playerId] || 0;
-          const handsWonCount = handsWon[playerId] || 0;
-          return { handsWon: handsWonCount, completedRegions, handsWonScore: handsWonCount, unificationScore: 0, alliancePenalty, total: handsWonCount - alliancePenalty };
+          rawStats[playerId] = {
+            handsWon: handsWon[playerId] || 0,
+            completedRegions,
+            alliancePenalty: alliancePenalties[playerId] || 0,
+            bidPenalty: bidPenalties[playerId] || 0,
+          };
+        });
+        const maxHandsWon = Math.max(...players.map(([id]) => rawStats[id].handsWon));
+        const maxCompletedRegions = Math.max(...players.map(([id]) => rawStats[id].completedRegions));
+        const computeStats = (playerId) => {
+          const { handsWon: hw, completedRegions, alliancePenalty, bidPenalty } = rawStats[playerId];
+          const handsWonScore = maxHandsWon > 0 ? Math.round((hw / maxHandsWon) * 100) : 0;
+          const unificationScore = maxCompletedRegions > 0 ? Math.round((completedRegions / maxCompletedRegions) * 100) : 0;
+          return { handsWon: hw, completedRegions, handsWonScore, unificationScore, alliancePenalty, bidPenalty, total: handsWonScore + unificationScore - alliancePenalty - bidPenalty };
         };
-        const players = Object.entries(teamColors);
         const font = { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', fontSize: '15px', fontWeight: 'normal' };
         const cell = { ...font, padding: '10px 20px', textAlign: 'center', whiteSpace: 'nowrap', color: 'white' };
         const hcell = { ...cell, padding: '10px 20px' };
@@ -3420,8 +3575,11 @@ function App() {
   const [cardsToPlay, setCardsToPlay] = useState(8);
   const [extraCards, setExtraCards] = useState(2);
   const [numRounds, setNumRounds] = useState(3);
+  const [currentRound, setCurrentRound] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const [eclipseEnabled, setEclipseEnabled] = useState(true);
+  const [alliancePenaltyAmount, setAlliancePenaltyAmount] = useState(5);
+  const [bidPenaltyAmount, setBidPenaltyAmount] = useState(20);
   const [viewedPlayer, setViewedPlayer] = useState(0);
   const [playerCountries, setPlayerCountries] = useState({
     player1: [],
@@ -3491,8 +3649,27 @@ function App() {
     setSelectedCountries([]);
     setPlayerCountries({ player1: [], player2: [], player3: [] });
     setCurrentPlayer(0);
+    setCurrentRound(1);
     setGamePhase('country_selection');
   }, []);
+
+  const handlePhaseChange = useCallback((phase) => {
+    if (phase === 'game_over') {
+      setCurrentRound(r => {
+        if (r < numRounds) {
+          setSelectedCountries([]);
+          setPlayerCountries({ player1: [], player2: [], player3: [] });
+          setCurrentPlayer(0);
+          setGamePhase('country_selection');
+          return r + 1;
+        }
+        setGamePhase('game_over');
+        return r;
+      });
+    } else {
+      setGamePhase(phase);
+    }
+  }, [numRounds]);
 
   const handleConsumePlayedCards = useCallback((playedCards) => {
     const teamIds = ['player1', 'player2', 'player3'];
@@ -3720,6 +3897,8 @@ function App() {
                   { label: 'Cards per player', val: cardsToPlay, set: setCardsToPlay, min: 1, max: 20 },
                   { label: 'Extra cards', val: extraCards, set: setExtraCards, min: 0, max: 10 },
                   { label: '# of rounds', val: numRounds, set: setNumRounds, min: 1, max: 20 },
+                  { label: 'Alliance penalty', val: alliancePenaltyAmount, set: setAlliancePenaltyAmount, min: 0, max: 100 },
+                  { label: 'Bid penalty', val: bidPenaltyAmount, set: setBidPenaltyAmount, min: 0, max: 200 },
                 ].map(({ label, val, set, min, max }) => (
                   <label key={label} style={{ fontSize: '12px', color: '#ccc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                     {label}
@@ -3885,7 +4064,11 @@ function App() {
           onConsumePlayedCards={handleConsumePlayedCards}
           playTimerDuration={playTimerDuration}
           cardsToPlay={cardsToPlay}
-          onPhaseChange={setGamePhase}
+          onPhaseChange={handlePhaseChange}
+          currentRound={currentRound}
+          numRounds={numRounds}
+          alliancePenaltyAmount={alliancePenaltyAmount}
+          bidPenaltyAmount={bidPenaltyAmount}
         />
       </main>
     </div>
