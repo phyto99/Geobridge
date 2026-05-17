@@ -44,6 +44,30 @@ const REGIONS = {
   antarctica: ['AQ']
 };
 
+const REGION_DISPLAY_NAMES = {
+  north_america: 'North America',
+  central_america_caribbean: 'Central America & Caribbean',
+  south_america: 'South America',
+  southwest_europe: 'Southwest Europe',
+  south_europe: 'South Europe',
+  central_europe: 'Central Europe',
+  west_europe: 'West Europe',
+  north_europe: 'North Europe',
+  southeast_europe: 'Southeast Europe',
+  east_europe: 'East Europe',
+  north_africa: 'North Africa',
+  central_africa: 'Central Africa',
+  east_africa: 'East Africa',
+  west_africa: 'West Africa',
+  south_africa: 'South Africa',
+  middle_east: 'Middle East',
+  indian_subcontinent: 'Indian Subcontinent',
+  central_asia: 'Central Asia',
+  eastern_asia: 'Eastern Asia',
+  oceania: 'Oceania',
+  antarctica: 'Antarctica',
+};
+
 // Pre-calculate region mapping for O(1) lookups
 const REGION_MAPPING = Object.entries(REGIONS).reduce((acc, [region, countries]) => {
   countries.forEach(country => {
@@ -1610,6 +1634,7 @@ const GlobeWrapper = ({
   viewedPlayer = 0,
   onViewedPlayerChange,
   eclipseEnabled = true,
+  claimedCountries = {},
   onConsumePlayedCards,
   playTimerDuration = 20,
   cardsToPlay = 1,
@@ -2520,6 +2545,9 @@ const GlobeWrapper = ({
   const [alliancePenalties, setAlliancePenalties] = useState({});
   // Bid penalties: playerId → penalty points (applied when bid winner misses their bid)
   const [bidPenalties, setBidPenalties] = useState({});
+  // Region completion notifications: [{ id, text }]
+  const [regionNotifications, setRegionNotifications] = useState([]);
+  const prevCompletedRegionsRef = useRef(new Set());
 
   // allianceKey: from viewedPlayer → targetIdx, or targetIdx → viewedPlayer
   const allianceKey = (fromIdx, toIdx) => `${fromIdx}-${toIdx}`;
@@ -2560,15 +2588,53 @@ const GlobeWrapper = ({
     }
   };
 
-  // Returns combined owned-country set for a player + all mutual allies
+  // Detect newly completed regions when claimedCountries changes
+  useEffect(() => {
+    const teamIds = Object.keys(teamColors);
+    const getAlliedOwnedForEffect = (playerId) => {
+      const myIdx = teamIds.indexOf(playerId);
+      const owned = new Set(claimedCountries[playerId] || []);
+      teamIds.forEach((id, theirIdx) => {
+        if (theirIdx === myIdx) return;
+        if (alliancesSent[`${myIdx}-${theirIdx}`] && alliancesSent[`${theirIdx}-${myIdx}`]) {
+          (claimedCountries[id] || []).forEach(c => owned.add(c));
+        }
+      });
+      return owned;
+    };
+    const nowComplete = new Set();
+    Object.entries(REGIONS).forEach(([regionKey, list]) => {
+      const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
+      if (valid.length === 0) return;
+      const completedBy = teamIds.find(id => {
+        const owned = getAlliedOwnedForEffect(id);
+        return valid.every(c => owned.has(c));
+      });
+      if (completedBy) nowComplete.add(regionKey);
+    });
+    const newlyDone = [...nowComplete].filter(k => !prevCompletedRegionsRef.current.has(k));
+    if (newlyDone.length > 0) {
+      const newNotifs = newlyDone.map(k => ({
+        id: `${k}-${Date.now()}`,
+        text: `${REGION_DISPLAY_NAMES[k] || k} was completed!`,
+      }));
+      setRegionNotifications(prev => [...prev, ...newNotifs]);
+      newNotifs.forEach(n => {
+        setTimeout(() => setRegionNotifications(prev => prev.filter(x => x.id !== n.id)), 8000);
+      });
+    }
+    prevCompletedRegionsRef.current = nowComplete;
+  }, [claimedCountries, alliancesSent, teamColors]);
+
+  // Returns combined CLAIMED-country set for a player + all mutual allies
   const getAlliedOwned = (playerId) => {
     const teamIds = Object.keys(teamColors);
     const myIdx = teamIds.indexOf(playerId);
-    const owned = new Set(playerCountries[playerId] || []);
+    const owned = new Set(claimedCountries[playerId] || []);
     teamIds.forEach((id, theirIdx) => {
       if (theirIdx === myIdx) return;
       if (alliancesSent[`${myIdx}-${theirIdx}`] && alliancesSent[`${theirIdx}-${myIdx}`]) {
-        (playerCountries[id] || []).forEach(c => owned.add(c));
+        (claimedCountries[id] || []).forEach(c => owned.add(c));
       }
     });
     return owned;
@@ -2696,8 +2762,23 @@ const GlobeWrapper = ({
           />
         </div>
 
-        {/* Leaderboard — double-click opens scoreboard */}
-        <div
+        {/* Region notifications + Leaderboard */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flexShrink: 0, pointerEvents: 'none' }}>
+          {/* Region completion notifications (left of leaderboard) */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', paddingTop: '4px' }}>
+            {regionNotifications.map(n => (
+              <div key={n.id} style={{
+                color: 'white', fontSize: '13px', fontWeight: 'normal',
+                whiteSpace: 'nowrap', pointerEvents: 'none',
+                animation: 'fade-in 0.3s ease forwards',
+              }}>
+                {n.text}
+              </div>
+            ))}
+          </div>
+
+          {/* Leaderboard — double-click opens scoreboard */}
+          <div
           style={{
             pointerEvents: 'auto',
             display: 'flex',
@@ -2740,6 +2821,7 @@ const GlobeWrapper = ({
               </div>
             );
           })}
+          </div>
         </div>
 
       </div>
@@ -3595,6 +3677,12 @@ function App() {
     player2: [],
     player3: []
   });
+  // Countries actually played as cards (used for region completion scoring)
+  const [claimedCountries, setClaimedCountries] = useState({
+    player1: [],
+    player2: [],
+    player3: []
+  });
 
   // Dataset selection state - only include working datasets
   const [selectedDatasets, setSelectedDatasets] = useState([
@@ -3657,6 +3745,7 @@ function App() {
   const resetGame = useCallback(() => {
     setSelectedCountries([]);
     setPlayerCountries({ player1: [], player2: [], player3: [] });
+    setClaimedCountries({ player1: [], player2: [], player3: [] });
     setCurrentPlayer(0);
     setCurrentRound(1);
     setGamePhase('country_selection');
@@ -3668,6 +3757,7 @@ function App() {
         if (r < numRounds) {
           setSelectedCountries([]);
           setPlayerCountries({ player1: [], player2: [], player3: [] });
+          setClaimedCountries({ player1: [], player2: [], player3: [] });
           setCurrentPlayer(0);
           setGamePhase('country_selection');
           return r + 1;
@@ -3688,6 +3778,14 @@ function App() {
       Object.entries(playedCards).forEach(([idxStr, code]) => {
         const pid = teamIds[Number(idxStr)];
         if (pid) next[pid] = (next[pid] || []).filter(c => c !== code);
+      });
+      return next;
+    });
+    setClaimedCountries(prev => {
+      const next = { ...prev };
+      Object.entries(playedCards).forEach(([idxStr, code]) => {
+        const pid = teamIds[Number(idxStr)];
+        if (pid) next[pid] = [...(next[pid] || []), code];
       });
       return next;
     });
@@ -4070,6 +4168,7 @@ function App() {
           viewedPlayer={viewedPlayer}
           onViewedPlayerChange={setViewedPlayer}
           eclipseEnabled={eclipseEnabled}
+          claimedCountries={claimedCountries}
           onConsumePlayedCards={handleConsumePlayedCards}
           playTimerDuration={playTimerDuration}
           cardsToPlay={cardsToPlay}
