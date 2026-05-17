@@ -391,6 +391,114 @@ const ISO2_TO_ISO3 = {
   'YT': 'MYT', 'ZA': 'ZAF', 'ZM': 'ZMB', 'ZW': 'ZWE'
 };
 
+// ── Hardcoded index data (stable, changes ~once/year) ─────────────────────────
+
+const HDI_DATA = {
+  'NO':0.966,'IS':0.959,'CH':0.962,'HK':0.956,'AU':0.946,'SE':0.952,'IE':0.950,'DE':0.942,
+  'NL':0.941,'FI':0.940,'SG':0.939,'BE':0.937,'NZ':0.939,'DK':0.948,'CA':0.935,'AT':0.926,
+  'US':0.927,'LU':0.930,'GB':0.929,'KR':0.929,'JP':0.920,'SI':0.926,'CZ':0.900,'EE':0.899,
+  'IT':0.906,'ES':0.911,'MT':0.918,'GR':0.893,'CY':0.899,'PL':0.876,'LT':0.879,'LV':0.879,
+  'PT':0.866,'SK':0.855,'HU':0.851,'HR':0.878,'FR':0.910,'IL':0.919,'AE':0.937,'BH':0.888,
+  'QA':0.855,'SA':0.875,'KW':0.847,'OM':0.816,'ME':0.832,'RS':0.805,'BY':0.801,'RU':0.821,
+  'TT':0.810,'UY':0.830,'AR':0.849,'CL':0.860,'PA':0.820,'CR':0.806,'BA':0.779,'AL':0.789,
+  'TR':0.855,'CN':0.788,'MX':0.781,'MK':0.770,'MY':0.803,'TH':0.800,'KZ':0.802,'UA':0.789,
+  'GE':0.814,'AM':0.786,'AZ':0.764,'MD':0.763,'BR':0.760,'CO':0.752,'PE':0.762,'EC':0.765,
+  'DO':0.767,'JM':0.706,'BZ':0.683,'SV':0.675,'NI':0.667,'IR':0.780,'JO':0.720,'LB':0.706,
+  'IQ':0.686,'EG':0.728,'LY':0.718,'TN':0.732,'DZ':0.745,'MA':0.698,'IN':0.644,'BD':0.670,
+  'LK':0.780,'PH':0.710,'ID':0.713,'VN':0.726,'MN':0.741,'TM':0.745,'UZ':0.727,'KG':0.701,
+  'TJ':0.685,'ZA':0.717,'BO':0.698,'PY':0.726,'GY':0.720,'SR':0.705,'FJ':0.730,'WS':0.707,
+  'TO':0.740,'GA':0.684,'CG':0.596,'GQ':0.596,'NA':0.615,'BW':0.693,'KE':0.601,'CM':0.587,
+  'GH':0.602,'GT':0.627,'HN':0.620,'VE':0.699,'MM':0.585,'KH':0.600,'LA':0.620,'NP':0.601,
+  'SN':0.517,'HT':0.548,'SD':0.516,'NG':0.548,'ET':0.492,'UG':0.550,'RW':0.548,'ZW':0.550,
+  'MW':0.512,'SL':0.477,'LR':0.456,'GN':0.465,'GW':0.461,'MG':0.487,'LS':0.494,'SZ':0.601,
+  'CV':0.661,'GM':0.527,'TG':0.547,'BJ':0.525,'DJ':0.520,'MR':0.541,'KM':0.558,'CD':0.481,
+  'CF':0.387,'TD':0.394,'BI':0.426,'SS':0.381,'ER':0.492,'ML':0.410,'NE':0.394,'AF':0.462,
+  'PK':0.544,'YE':0.455,'SO':0.380,'MZ':0.456,'ZM':0.565,'AO':0.590,'CI':0.534,'BF':0.449,
+  'PG':0.567,'VU':0.607,'MU':0.796,'SC':0.796,'TL':0.607,'BN':0.829,'CU':0.764,'PS':0.715,
+  'KP':0.733,'TW':0.926,'SY':0.557,'MV':0.762,'BB':0.814,'BS':0.820,'AG':0.826,'DM':0.743,
+  'GD':0.793,'KN':0.778,'LC':0.742,'VC':0.738,'BT':0.681,'SB':0.543,'KI':0.630,'TV':0.641,
+  'NR':0.703,'MH':0.639,'FM':0.628,'PW':0.767,'RO':0.827,'MK':0.770,'XK':0.742,
+};
+
+const DEMOCRACY_DATA = {
+  'NO':9.81,'NZ':9.61,'IS':9.45,'SE':9.39,'FI':9.30,'DK':9.28,'CH':9.14,'IE':9.05,
+  'AU':9.01,'NL':9.00,'LU':8.92,'CA':8.88,'DE':8.80,'GB':8.78,'AT':8.61,'MT':8.54,
+  'MU':8.14,'JP':8.40,'CR':8.16,'PT':8.16,'UY':8.10,'ES':8.08,'KR':8.09,'FR':7.99,
+  'IT':7.98,'US':7.85,'BE':7.89,'EE':7.90,'SI':8.00,'CZ':7.83,'MY':7.30,'ZA':7.19,
+  'JM':7.17,'BR':6.67,'AR':7.02,'LT':7.18,'LV':7.24,'SK':7.35,'GH':6.43,'CL':7.77,
+  'GR':7.72,'CY':7.59,'TT':7.06,'PA':6.84,'SG':6.22,'MX':6.06,'KE':5.68,'IN':7.04,
+  'IL':7.84,'ID':6.53,'PH':6.62,'HU':6.64,'MK':5.30,'BA':4.98,'UA':5.42,'MD':6.53,
+  'GE':5.40,'AR':7.02,'BO':5.87,'CO':6.35,'DO':6.21,'EC':5.87,'GT':5.88,'HN':4.59,
+  'SV':5.79,'PY':6.27,'PE':5.93,'SN':5.71,'TZ':5.16,'MG':5.30,'ZM':5.47,'NA':6.31,
+  'TN':5.50,'AL':5.91,'ME':6.01,'RS':5.67,'TH':6.67,'ID':6.53,'MN':6.27,'TL':7.06,
+  'PG':6.32,'FJ':5.69,'VU':6.93,'WS':6.23,'BW':7.81,'LK':5.67,'BH':2.61,'KW':3.18,
+  'JO':3.38,'MA':4.84,'DZ':3.73,'TN':5.50,'NG':4.23,'BD':5.99,'NP':4.50,'PK':4.24,
+  'TR':4.35,'LB':3.45,'IQ':3.43,'KG':3.45,'MR':3.50,'ML':2.88,'GN':2.67,'BF':2.30,
+  'CI':3.01,'TG':2.43,'BJ':4.80,'GH':6.43,'CM':2.79,'KE':5.68,'UG':4.12,'RW':2.89,
+  'ET':2.28,'CD':2.15,'ZW':3.16,'SD':2.81,'GQ':1.84,'AZ':2.72,'KZ':2.20,'AM':4.00,
+  'UZ':2.12,'TJ':1.33,'TM':1.66,'BY':1.55,'RU':2.22,'CN':1.77,'IR':1.73,'SY':1.43,
+  'YE':2.18,'AF':0.32,'SA':2.08,'AE':2.90,'QA':3.09,'OM':3.17,'CU':2.09,'LA':1.77,
+  'MM':1.02,'KP':1.08,'VN':2.63,'EG':2.93,'LY':2.28,'SS':1.89,'SO':2.39,'ER':2.11,
+};
+
+const PRESS_FREEDOM_DATA = {
+  'NO':91.89,'DK':89.60,'SE':88.32,'NL':87.73,'FI':86.55,'EE':86.44,'IE':85.59,'CH':84.01,
+  'LU':83.45,'AU':81.97,'IS':82.10,'DE':79.60,'LT':76.89,'CA':76.77,'AT':76.05,'PT':78.59,
+  'NZ':78.27,'SK':75.19,'LV':72.76,'BE':72.99,'GB':72.54,'FR':72.44,'CZ':70.70,'GR':69.70,
+  'CY':69.28,'US':66.59,'IT':66.78,'SL':62.51,'KR':65.03,'ES':62.86,'TW':62.44,'HR':66.31,
+  'AM':59.58,'TT':62.90,'SG':57.00,'ZA':57.48,'GH':57.23,'SN':56.20,'NA':55.65,'ZM':55.34,
+  'MK':54.98,'AR':54.71,'MX':54.69,'MU':54.10,'RS':52.97,'JP':52.11,'TZ':51.89,'KE':51.54,
+  'BO':51.33,'MG':50.51,'ID':51.40,'CO':49.65,'UA':48.33,'AL':48.21,'HU':47.78,'GY':47.22,
+  'MA':45.94,'TH':44.78,'ML':44.50,'BF':43.21,'GE':43.02,'MD':42.74,'LS':42.07,'UG':41.87,
+  'BD':41.39,'MZ':40.54,'IN':40.18,'EC':39.87,'PE':39.40,'TG':39.22,'PH':38.88,'NG':46.89,
+  'KE':51.54,'MM':50.01,'LB':30.10,'TR':29.51,'RW':29.64,'AF':28.54,'PK':27.89,'AZ':27.32,
+  'KZ':26.78,'IR':20.06,'RU':19.67,'EG':18.73,'ET':17.82,'BY':17.08,'SD':16.94,'SA':15.50,
+  'SY':14.35,'CN':13.45,'VN':12.99,'DZ':12.15,'LA':10.86,'CU':10.35,'TM':2.06,'ER':1.70,
+  'KP':0.00,'NP':52.03,'LK':48.78,'CM':35.12,'CD':29.97,'KH':29.45,'IQ':27.12,'JO':26.43,
+  'YE':18.24,'OM':22.15,'AE':17.84,'QA':29.40,'BH':19.76,'KW':30.52,'SS':17.44,'SO':18.90,
+  'ZW':36.78,'BR':64.42,'CL':70.87,'UY':74.99,'PY':56.43,'EC':39.87,'GT':41.23,'HN':37.62,
+  'SV':38.94,'NI':21.88,'DO':59.37,'JM':71.45,'CR':76.93,'PA':62.11,'CI':42.57,'GN':40.21,
+  'BJ':53.24,'GW':52.10,'SN':56.20,'GH':57.23,'TZ':51.89,'MG':50.51,'MW':52.88,'ZM':55.34,
+};
+
+const PEACE_INDEX_DATA = {
+  'IS':1.095,'IE':1.260,'NZ':1.282,'AT':1.294,'CH':1.294,'SG':1.357,'PT':1.371,'DK':1.393,
+  'SI':1.409,'FI':1.420,'CZ':1.435,'JP':1.440,'CA':1.491,'NL':1.491,'BE':1.492,'HU':1.500,
+  'AU':1.505,'NO':1.523,'SE':1.575,'DE':1.580,'LU':1.567,'PL':1.608,'ES':1.648,'SK':1.703,
+  'IT':1.730,'UY':1.781,'TW':1.746,'RO':1.726,'BG':1.752,'CL':1.789,'KR':1.779,'HR':1.780,
+  'AL':1.792,'LT':1.802,'LV':1.817,'EE':1.819,'GB':1.698,'GR':1.832,'MT':1.842,'CY':1.855,
+  'FR':1.820,'OM':1.890,'MY':1.894,'VN':1.908,'GH':1.984,'MG':1.960,'NE':1.950,'SN':1.970,
+  'MK':2.010,'MN':2.020,'KG':2.030,'CR':1.940,'PA':1.960,'MU':2.060,'RS':1.882,'TZ':2.000,
+  'ZM':2.060,'AO':2.110,'LA':2.120,'KH':2.090,'BF':2.100,'KE':2.108,'BA':2.080,'ID':2.170,
+  'BD':2.190,'MX':2.197,'BZ':2.210,'BO':2.210,'PY':2.220,'DO':2.230,'IN':2.290,'SB':2.306,
+  'AR':2.350,'JM':2.360,'SV':2.369,'GT':2.374,'BR':2.284,'EC':2.257,'HN':2.270,'TH':2.395,
+  'ZA':2.040,'TJ':2.260,'UZ':2.150,'KZ':2.160,'TM':2.170,'AZ':2.131,'ZW':2.500,'UG':2.390,
+  'AM':2.380,'ET':2.500,'TR':2.609,'PH':2.340,'PK':2.618,'CM':2.620,'NG':2.600,'MM':2.944,
+  'UA':3.440,'CD':3.002,'ML':2.876,'LY':3.073,'CF':3.270,'KP':2.930,'IR':2.837,'IQ':2.716,
+  'SD':3.176,'SS':3.227,'AF':3.448,'SY':3.320,'YE':3.390,'RU':3.271,'SO':3.333,'HT':3.200,
+  'CN':2.070,'US':2.440,'GE':2.238,'BY':2.810,'LB':3.189,'EG':2.357,'MA':1.930,'DZ':2.241,
+  'TN':1.978,'DJ':2.410,'ER':2.580,'BJ':2.160,'CI':2.388,'GN':2.330,'LR':2.270,'SL':1.960,
+  'SN':1.970,'MW':1.907,'MZ':2.290,'NA':1.890,'BW':1.870,'LS':1.978,'SZ':1.850,'RW':2.180,
+};
+
+const UNESCO_FALLBACK = {
+  'IT':59,'CN':57,'DE':52,'FR':54,'ES':50,'IN':42,'MX':35,'GB':33,'RU':31,'JP':25,
+  'US':24,'IR':27,'BR':23,'GR':19,'AU':20,'CA':22,'PT':17,'PL':17,'TR':21,'BE':16,
+  'NL':13,'CZ':17,'PE':13,'AR':12,'SE':15,'KR':16,'SA':7,'EG':7,'ET':9,'ZA':10,
+  'JO':6,'MA':9,'TN':8,'IL':9,'AT':12,'CH':13,'NO':8,'DK':10,'FI':7,'HU':8,
+  'RO':9,'BG':10,'HR':10,'SK':7,'IE':2,'LT':4,'LV':2,'EE':2,'IS':2,'MT':3,
+  'CY':3,'LU':1,'RS':5,'UA':8,'GE':4,'AM':3,'AZ':2,'KZ':5,'UZ':7,'TM':3,
+  'KG':3,'MN':6,'KH':3,'VN':8,'TH':6,'MY':4,'ID':10,'PH':6,'LK':8,'NP':4,
+  'BD':3,'PK':6,'AF':2,'IQ':6,'SY':6,'LB':5,'PS':4,'NG':2,'GH':2,'SN':7,
+  'CD':5,'KE':7,'TZ':7,'UG':3,'MZ':1,'ZW':5,'ZM':1,'MG':3,'NA':2,'BW':2,
+  'LY':5,'DZ':7,'SD':3,'ML':4,'CI':5,'CU':9,'GT':3,'CR':4,'PA':5,'CO':9,
+  'VE':3,'EC':5,'BO':7,'CL':7,'NZ':3,'DO':1,'PG':1,'FJ':1,'MX':35,'TW':1,
+  'CM':2,'MW':2,'BI':1,'RW':0,'SS':0,'SO':0,'ER':0,'DJ':0,'KP':2,'BY':0,
+  'MD':1,'XK':1,'ME':4,'MK':2,'BA':2,'AL':4,'LB':5,'QA':1,'KW':0,'BH':3,
+  'AE':1,'OM':5,'YE':4,'MM':2,'LA':3,'BN':0,'TL':1,'SB':1,'VU':1,'WS':0,
+  'TO':0,'KI':1,'TV':0,'NR':0,'MH':0,'FM':0,'PW':0,'MU':2,'SC':2,'CV':1,
+};
+
 // Real-time data fetching functions
 const fetchWorldBankData = async (indicator, year = '2022') => {
   try {
@@ -448,9 +556,27 @@ const fetchOWIDData = async (dataset) => {
   return {};
 };
 
+const fetchUNESCO = async () => {
+  try {
+    const r = await fetch('https://whc.unesco.org/en/list/?output=json&limit=2000', { mode: 'cors' });
+    const sites = await r.json();
+    const counts = {};
+    sites.forEach(site => {
+      (site.iso_code || '').split(',').forEach(c => {
+        const k = c.trim().toUpperCase();
+        if (k) counts[k] = (counts[k] || 0) + 1;
+      });
+    });
+    return counts;
+  } catch (e) {
+    console.warn('UNESCO API failed, using fallback data');
+    return null;
+  }
+};
+
 const fetchRestCountries = async () => {
   try {
-    const response = await fetch('https://restcountries.com/v3.1/all?fields=cca2,area,borders', { mode: 'cors' });
+    const response = await fetch('https://restcountries.com/v3.1/all?fields=cca2,area,borders,languages,timezones,landlocked,unMember', { mode: 'cors' });
     const countries = await response.json();
     const result = {};
 
@@ -458,7 +584,11 @@ const fetchRestCountries = async () => {
       if (country.cca2) {
         result[country.cca2] = {
           area: country.area || 0,
-          neighbors: country.borders ? country.borders.length : 0
+          neighbors: country.borders ? country.borders.length : 0,
+          languages: country.languages ? Object.keys(country.languages).length : 0,
+          timezones: country.timezones ? country.timezones.length : 0,
+          landlocked: country.landlocked ? 1 : 0,
+          unMember: country.unMember ? 1 : 0,
         };
       }
     });
@@ -474,6 +604,7 @@ let globalDataCache = {
   worldBank: {},
   owid: {},
   restCountries: {},
+  unesco: {},
   lastFetch: 0
 };
 
@@ -499,7 +630,13 @@ const initializeGlobalData = async () => {
     'NY.GDP.MKTP.KD.ZG': 'gdp_growth_rate',
     'SL.UEM.TOTL.ZS': 'unemployment_rate',
     'NE.EXP.GNFS.ZS': 'exports_pct_gdp',
-    'MS.MIL.XPND.GD.ZS': 'military_expenditure_pct'
+    'MS.MIL.XPND.GD.ZS': 'military_expenditure_pct',
+    'FP.CPI.TOTL.ZG': 'inflation_rate',
+    'SP.DYN.TFRT.IN': 'fertility_rate',
+    'SP.DYN.IMRT.IN': 'infant_mortality',
+    'SI.POV.GINI': 'gini_coefficient',
+    'EG.ELC.ACCS.ZS': 'electricity_access',
+    'SH.H2O.BASW.ZS': 'clean_water_access',
   };
 
   // Fetch World Bank data
@@ -521,6 +658,16 @@ const initializeGlobalData = async () => {
     console.log(`✓ Fetched country data: ${Object.keys(globalDataCache.restCountries).length} countries`);
   } catch (error) {
     console.warn('Failed to fetch REST Countries:', error);
+  }
+
+  // Fetch UNESCO World Heritage Sites
+  try {
+    const unescoData = await fetchUNESCO();
+    globalDataCache.unesco = unescoData || UNESCO_FALLBACK;
+    console.log(`✓ UNESCO data: ${Object.keys(globalDataCache.unesco).length} countries`);
+  } catch (error) {
+    globalDataCache.unesco = UNESCO_FALLBACK;
+    console.warn('UNESCO fetch error, using fallback');
   }
 
   globalDataCache.lastFetch = now;
@@ -618,7 +765,7 @@ const AVAILABLE_DATASETS = {
     name: 'Area (km²)',
     category: 'Built-in',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Use REST Countries API data if available, fallback to static data
       const restData = globalDataCache.restCountries[code];
       return restData?.area || COUNTRY_DATA[code]?.area || feat.properties.AREA || feat.properties.AREA_KM2 || 0;
@@ -631,7 +778,7 @@ const AVAILABLE_DATASETS = {
     name: 'Neighbors',
     category: 'Built-in',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Use REST Countries API data if available, fallback to static data
       const restData = globalDataCache.restCountries[code];
       return restData?.neighbors || COUNTRY_DATA[code]?.neighbors || feat.properties.NEIGHBORS || feat.properties.NEIGHBOR_COUNT || 0;
@@ -646,8 +793,8 @@ const AVAILABLE_DATASETS = {
     name: 'Forest Area (%)',
     category: 'World Bank',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.forest_area_pct?.[iso3] || 0;
     },
     unit: '%',
@@ -658,11 +805,9 @@ const AVAILABLE_DATASETS = {
     id: 'co2_emissions',
     name: 'CO2 Emissions (t/capita)',
     category: 'World Bank',
-    disabled: true,
-    disabledReason: 'API data not loading properly',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.co2_emissions_per_capita?.[iso3] || 0;
     },
     unit: 't/capita',
@@ -674,8 +819,8 @@ const AVAILABLE_DATASETS = {
     name: 'Urban Population (%)',
     category: 'World Bank',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.urban_population_pct?.[iso3] || 0;
     },
     unit: '%',
@@ -687,8 +832,8 @@ const AVAILABLE_DATASETS = {
     name: 'Internet Users (%)',
     category: 'World Bank',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.internet_users_pct?.[iso3] || 0;
     },
     unit: '%',
@@ -699,11 +844,9 @@ const AVAILABLE_DATASETS = {
     id: 'education_expenditure',
     name: 'Education Spending (% GDP)',
     category: 'World Bank',
-    disabled: true,
-    disabledReason: 'API data not loading properly',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.education_expenditure_pct?.[iso3] || 0;
     },
     unit: '% GDP',
@@ -714,11 +857,9 @@ const AVAILABLE_DATASETS = {
     id: 'renewable_electricity',
     name: 'Renewable Electricity (%)',
     category: 'World Bank',
-    disabled: true,
-    disabledReason: 'API data not loading properly',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.renewable_electricity_pct?.[iso3] || 0;
     },
     unit: '%',
@@ -729,11 +870,9 @@ const AVAILABLE_DATASETS = {
     id: 'life_expectancy',
     name: 'Life Expectancy',
     category: 'World Bank',
-    disabled: true,
-    disabledReason: 'API data not loading properly',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.life_expectancy?.[iso3] || 0;
     },
     unit: 'years',
@@ -744,11 +883,9 @@ const AVAILABLE_DATASETS = {
     id: 'gdp_growth',
     name: 'GDP Growth Rate (%)',
     category: 'World Bank',
-    disabled: true,
-    disabledReason: 'API data not loading',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.gdp_growth_rate?.[iso3] || 0;
     },
     unit: '%',
@@ -759,11 +896,9 @@ const AVAILABLE_DATASETS = {
     id: 'unemployment',
     name: 'Unemployment Rate (%)',
     category: 'World Bank',
-    disabled: true,
-    disabledReason: 'API data not loading',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.unemployment_rate?.[iso3] || 0;
     },
     unit: '%',
@@ -774,11 +909,9 @@ const AVAILABLE_DATASETS = {
     id: 'exports_gdp',
     name: 'Exports (% GDP)',
     category: 'World Bank',
-    disabled: true,
-    disabledReason: 'API data not loading',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.exports_pct_gdp?.[iso3] || 0;
     },
     unit: '% GDP',
@@ -790,8 +923,8 @@ const AVAILABLE_DATASETS = {
     name: 'Military Spending (% GDP)',
     category: 'World Bank',
     getter: (feat) => {
-      const iso2 = feat.properties.ISO_A2;
-      const iso3 = feat.properties.ISO_A3 || ISO2_TO_ISO3[iso2];
+      const iso2 = getCountryCode(feat);
+      const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3;
       return globalDataCache.worldBank.military_expenditure_pct?.[iso3] || 0;
     },
     unit: '% GDP',
@@ -805,7 +938,7 @@ const AVAILABLE_DATASETS = {
     category: 'Calculated',
     getter: (feat) => {
       const pop = feat.properties.POP_EST || feat.properties.POP2005 || 0;
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const restData = globalDataCache.restCountries[code];
       const area = restData?.area || COUNTRY_DATA[code]?.area || feat.properties.AREA || feat.properties.AREA_KM2 || 1;
       return area > 0 ? pop / area : 0;
@@ -834,7 +967,7 @@ const AVAILABLE_DATASETS = {
     name: 'Economic Complexity Index',
     category: 'Economic',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Economic Complexity Index (ECI) - measures export sophistication
       const eciData = {
         'JP': 2.28, 'CH': 2.09, 'DE': 1.96, 'KR': 1.78, 'AT': 1.54, 'FI': 1.49, 'CZ': 1.46,
@@ -858,7 +991,7 @@ const AVAILABLE_DATASETS = {
     name: 'Digital Competitiveness',
     category: 'Technology',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // IMD Digital Competitiveness Ranking (converted to score)
       const digitalData = {
         'US': 100, 'SG': 98, 'DK': 96, 'SE': 94, 'HK': 92, 'CH': 90, 'NL': 88, 'KR': 86,
@@ -881,7 +1014,7 @@ const AVAILABLE_DATASETS = {
     name: 'Energy Security Index',
     category: 'Energy',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Energy security based on production, reserves, and imports
       const energyData = {
         'NO': 95, 'SA': 92, 'RU': 90, 'CA': 88, 'AU': 85, 'US': 82, 'AE': 80, 'KW': 78,
@@ -903,7 +1036,7 @@ const AVAILABLE_DATASETS = {
     name: 'Corruption Perception Index',
     category: 'Governance',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Transparency International CPI 2023 (higher = less corrupt)
       const cpiData = {
         'DK': 90, 'FI': 87, 'NZ': 87, 'NO': 84, 'SG': 83, 'SE': 82, 'CH': 82, 'NL': 79,
@@ -927,7 +1060,7 @@ const AVAILABLE_DATASETS = {
     name: 'Global Innovation Index',
     category: 'Innovation',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Global Innovation Index 2023
       const giiData = {
         'CH': 68.2, 'SE': 64.8, 'US': 61.8, 'GB': 60.4, 'SG': 59.8, 'FI': 59.7, 'NL': 58.8,
@@ -979,7 +1112,7 @@ const AVAILABLE_DATASETS = {
     name: 'Coffee Production (tonnes)',
     category: 'FAOSTAT',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const area = feat.properties.AREA || 0;
       // Major coffee producers - EXACT DATA ONLY
       const majorProducers = { 'BR': 3000000, 'VN': 1800000, 'CO': 800000, 'ID': 700000, 'ET': 400000, 'HN': 350000, 'IN': 300000, 'UG': 280000, 'MX': 250000, 'GT': 200000 };
@@ -1050,7 +1183,7 @@ const AVAILABLE_DATASETS = {
     getter: (feat) => {
       const gdp = feat.properties.GDP_MD_EST || 0;
       const pop = feat.properties.POP_EST || 1;
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Industrial powerhouses
       // NO RANDOMIZED DATA - RETURN NULL IF NO EXACT DATA
       return null;
@@ -1063,7 +1196,7 @@ const AVAILABLE_DATASETS = {
     name: 'Tourism Arrivals (millions)',
     category: 'UN Data',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const gdp = feat.properties.GDP_MD_EST || 0;
       // Major tourist destinations - EXACT DATA ONLY
       const touristHotspots = { 'FR': 90, 'ES': 85, 'US': 80, 'CN': 65, 'IT': 65, 'TR': 50, 'MX': 45, 'TH': 40, 'DE': 40, 'GB': 38 };
@@ -1082,7 +1215,7 @@ const AVAILABLE_DATASETS = {
     name: 'Oil Production (barrels/day)',
     category: 'Energy Institute',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Major oil producers (thousands of barrels per day) - EXACT DATA ONLY
       const oilProducers = { 'US': 12000, 'RU': 11000, 'SA': 10000, 'CA': 5500, 'IQ': 4500, 'CN': 4000, 'AE': 3500, 'BR': 3000, 'KW': 2700, 'IR': 2500, 'NO': 2000, 'MX': 1800, 'KZ': 1800, 'NG': 1700, 'QA': 1500 };
       if (oilProducers[code]) return oilProducers[code] * 1000;
@@ -1100,7 +1233,7 @@ const AVAILABLE_DATASETS = {
     getter: (feat) => {
       const gdp = feat.properties.GDP_MD_EST || 0;
       const pop = feat.properties.POP_EST || 1;
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Energy consumption correlates with GDP and population
       const baseConsumption = (gdp / 100) + (pop / 10000000);
       const industrialMultiplier = ['CN', 'US', 'IN', 'RU', 'JP', 'DE', 'KR', 'CA', 'BR', 'IR'].includes(code) ? 2 : 1;
@@ -1116,7 +1249,7 @@ const AVAILABLE_DATASETS = {
     name: 'Gold Production (tonnes)',
     category: 'USGS Minerals',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       // Major gold producers - EXACT DATA ONLY
       const goldProducers = { 'CN': 380, 'AU': 330, 'RU': 300, 'US': 200, 'CA': 180, 'PE': 140, 'GH': 130, 'ZA': 120, 'MX': 110, 'UZ': 100 };
       if (goldProducers[code]) return goldProducers[code];
@@ -1132,7 +1265,7 @@ const AVAILABLE_DATASETS = {
     name: 'Copper Reserves (Mt)',
     category: 'USGS Minerals',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const copperReserves = {
         'CL': 200, 'AU': 88, 'PE': 87, 'RU': 61, 'US': 51, 'MX': 53, 'CN': 26, 'ID': 28, 'PL': 40, 'ZM': 20,
         'KZ': 19, 'CA': 11, 'IR': 9.3, 'TR': 6.1, 'MN': 1.4, 'AR': 3.2, 'BO': 5.6, 'BR': 6.8, 'BG': 2.9,
@@ -1150,7 +1283,7 @@ const AVAILABLE_DATASETS = {
     name: 'Road Density (km/100km²)',
     category: 'World Bank',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const roadData = {
         'MC': 4167, 'SG': 489, 'BH': 364, 'MT': 316, 'BB': 370, 'BE': 505, 'NL': 332, 'JP': 324,
         'DE': 180, 'GB': 167, 'IT': 173, 'CH': 171, 'LU': 135, 'FR': 137, 'DK': 74, 'AT': 134,
@@ -1180,7 +1313,7 @@ const AVAILABLE_DATASETS = {
     name: 'Urban Population (%)',
     category: 'World Bank',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const urbanData = {
         'SG': 100, 'KW': 100, 'MC': 100, 'NR': 100, 'VA': 100, 'QA': 99.2, 'BH': 89.4, 'MT': 94.9,
         'IS': 94.1, 'IL': 92.6, 'UY': 95.5, 'AR': 92.1, 'AU': 86.2, 'BE': 98.1, 'DK': 88.1,
@@ -1237,7 +1370,7 @@ const AVAILABLE_DATASETS = {
     name: 'Population Density (/km²)',
     category: 'World Bank',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const pop = feat.properties.POP_EST || 0;
       const area = COUNTRY_DATA[code]?.area || feat.properties.AREA || 1;
       return pop / area;
@@ -1251,7 +1384,7 @@ const AVAILABLE_DATASETS = {
     name: 'Military Expenditure (% GDP)',
     category: 'World Bank',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const militaryData = {
         'OM': 8.8, 'SA': 8.0, 'AZ': 5.0, 'KW': 5.6, 'JO': 4.8, 'AM': 4.9, 'SG': 3.2, 'RU': 4.3,
         'US': 3.5, 'IL': 5.6, 'KR': 2.8, 'GR': 3.8, 'EE': 2.3, 'LV': 2.3, 'PL': 2.4, 'GB': 2.3,
@@ -1288,7 +1421,7 @@ const AVAILABLE_DATASETS = {
     name: 'Healthcare Expenditure (% GDP)',
     category: 'World Bank',
     getter: (feat) => {
-      const code = feat.properties.ISO_A2;
+      const code = getCountryCode(feat);
       const healthData = {
         'US': 17.8, 'DE': 11.7, 'FR': 11.3, 'AT': 10.4, 'CH': 10.9, 'NL': 10.2, 'SE': 10.9,
         'BE': 10.7, 'CA': 10.8, 'JP': 10.9, 'NO': 10.5, 'DK': 10.1, 'GB': 10.9, 'IT': 8.7,
@@ -1321,7 +1454,87 @@ const AVAILABLE_DATASETS = {
     },
     unit: '% GDP',
     format: (val) => `${Math.round(val * 10) / 10}%`
-  }
+  },
+
+  // ── 6 new World Bank indicators ───────────────────────────────────────────
+  inflation_rate: {
+    id: 'inflation_rate', name: 'Inflation Rate (%)', category: 'World Bank',
+    getter: (feat) => { const iso2 = getCountryCode(feat); const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3; return globalDataCache.worldBank.inflation_rate?.[iso3] || 0; },
+    unit: '%', format: (val) => `${Math.round(val * 10) / 10}%`
+  },
+  fertility_rate: {
+    id: 'fertility_rate', name: 'Fertility Rate (births/woman)', category: 'World Bank',
+    getter: (feat) => { const iso2 = getCountryCode(feat); const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3; return globalDataCache.worldBank.fertility_rate?.[iso3] || 0; },
+    unit: 'births/woman', format: (val) => `${Math.round(val * 100) / 100}`
+  },
+  infant_mortality: {
+    id: 'infant_mortality', name: 'Infant Mortality (per 1000)', category: 'World Bank',
+    getter: (feat) => { const iso2 = getCountryCode(feat); const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3; return globalDataCache.worldBank.infant_mortality?.[iso3] || 0; },
+    unit: 'per 1000', format: (val) => `${Math.round(val * 10) / 10}`
+  },
+  gini_coefficient: {
+    id: 'gini_coefficient', name: 'Gini Coefficient', category: 'World Bank',
+    getter: (feat) => { const iso2 = getCountryCode(feat); const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3; return globalDataCache.worldBank.gini_coefficient?.[iso3] || 0; },
+    unit: 'index', format: (val) => `${Math.round(val * 10) / 10}`
+  },
+  electricity_access: {
+    id: 'electricity_access', name: 'Electricity Access (%)', category: 'World Bank',
+    getter: (feat) => { const iso2 = getCountryCode(feat); const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3; return globalDataCache.worldBank.electricity_access?.[iso3] || 0; },
+    unit: '%', format: (val) => `${Math.round(val * 10) / 10}%`
+  },
+  clean_water_access: {
+    id: 'clean_water_access', name: 'Clean Water Access (%)', category: 'World Bank',
+    getter: (feat) => { const iso2 = getCountryCode(feat); const iso3 = ISO2_TO_ISO3[iso2] || feat.properties.ISO_A3; return globalDataCache.worldBank.clean_water_access?.[iso3] || 0; },
+    unit: '%', format: (val) => `${Math.round(val * 10) / 10}%`
+  },
+
+  // ── REST Countries fields ─────────────────────────────────────────────────
+  languages_count: {
+    id: 'languages_count', name: 'Official Languages', category: 'Built-in',
+    getter: (feat) => { const code = getCountryCode(feat); return globalDataCache.restCountries[code]?.languages || 0; },
+    unit: '', format: (val) => `${val}`
+  },
+  timezones_count: {
+    id: 'timezones_count', name: 'Time Zones', category: 'Built-in',
+    getter: (feat) => { const code = getCountryCode(feat); return globalDataCache.restCountries[code]?.timezones || 0; },
+    unit: '', format: (val) => `${val}`
+  },
+  landlocked: {
+    id: 'landlocked', name: 'Landlocked', category: 'Built-in',
+    getter: (feat) => { const code = getCountryCode(feat); return globalDataCache.restCountries[code]?.landlocked || 0; },
+    unit: '', format: (val) => val ? 'Yes' : 'No'
+  },
+
+  // ── Hardcoded global indices ───────────────────────────────────────────────
+  hdi: {
+    id: 'hdi', name: 'Human Dev. Index (HDI)', category: 'UNDP',
+    getter: (feat) => HDI_DATA[getCountryCode(feat)] || 0,
+    unit: 'index', format: (val) => `${Math.round(val * 1000) / 1000}`
+  },
+  democracy_index: {
+    id: 'democracy_index', name: 'Democracy Index', category: 'EIU',
+    getter: (feat) => DEMOCRACY_DATA[getCountryCode(feat)] || 0,
+    unit: '/10', format: (val) => `${Math.round(val * 100) / 100}/10`
+  },
+  press_freedom: {
+    id: 'press_freedom', name: 'Press Freedom Index', category: 'RSF',
+    getter: (feat) => PRESS_FREEDOM_DATA[getCountryCode(feat)] || 0,
+    unit: '/100', format: (val) => `${Math.round(val * 10) / 10}/100`
+  },
+  peace_index: {
+    id: 'peace_index', name: 'Global Peace Index', category: 'IEP',
+    getter: (feat) => {
+      const v = PEACE_INDEX_DATA[getCountryCode(feat)];
+      // Invert so higher = more peaceful (max raw ~3.5, return 0 if unknown)
+      return v ? Math.round((3.5 - v) * 1000) / 1000 : 0;
+    },
+    unit: 'index', format: (val) => `${Math.round(val * 100) / 100}`
+  },
+  unesco_sites: {
+    id: 'unesco_sites', name: 'UNESCO Heritage Sites', category: 'UNESCO',
+    getter: (feat) => { const code = getCountryCode(feat); return (globalDataCache.unesco?.[code] || UNESCO_FALLBACK[code]) || 0; },
+    unit: 'sites', format: (val) => `${val} sites`
+  },
 };
 
 // Create HEIGHT_GETTERS from AVAILABLE_DATASETS with validation
@@ -1424,6 +1637,25 @@ function makeSvgProjection(bbox, svgSize, padding = 0.06) {
   return (lon, lat) => [(lon - minX) * scale + ox, (maxY - lat) * scale + oy];
 }
 
+// South polar azimuthal equidistant projection — gives Antarctica its correct circular shape.
+function makePolarSouthProjection(svgSize) {
+  const cx = svgSize / 2, cy = svgSize / 2;
+  const maxRho = 35; // degrees from south pole, covers ~-55° lat
+  const scale = (svgSize / 2) * 0.88 / maxRho;
+  return (lon, lat) => {
+    const rho = 90 + lat;
+    const theta = lon * Math.PI / 180;
+    return [cx + scale * rho * Math.sin(theta), cy - scale * rho * Math.cos(theta)];
+  };
+}
+
+function getAllOuterRings(geometry) {
+  if (!geometry) return [];
+  if (geometry.type === 'Polygon') return [geometry.coordinates[0]];
+  if (geometry.type === 'MultiPolygon') return geometry.coordinates.map(p => p[0]);
+  return [];
+}
+
 // Russia's GeoJSON CONTINENT is Europe; override to Asia so it groups correctly
 const CONTINENT_OVERRIDES = { RU: 'Asia' };
 
@@ -1479,6 +1711,15 @@ const CountryHexCard = React.memo(({ feature, allFeatures, clipId, onClick, mode
   const { continentPath, countryPath, hx, hy } = useMemo(() => {
     const continentFeats = allFeatures.filter(f => getFeatureContinent(f) === continent);
     if (!continentFeats.length) return { continentPath: '', countryPath: '', hx: SVG/2, hy: SVG/2 };
+
+    if (continent === 'Antarctica') {
+      const project = makePolarSouthProjection(SVG);
+      const cPath = continentFeats.map(f =>
+        getAllOuterRings(f.geometry).map(r => ringToPath(r, project, 0)).join(' ')
+      ).join(' ');
+      const kPath = getAllOuterRings(feature.geometry).map(r => ringToPath(r, project, 0)).join(' ');
+      return { continentPath: cPath, countryPath: kPath, hx: SVG/2, hy: SVG/2 };
+    }
 
     const bbox = getContinentBBox(continentFeats);
     const project = makeSvgProjection(bbox, SVG);
@@ -2428,7 +2669,8 @@ const GlobeWrapper = ({
           : dataset.name;
 
         // Check if value is 0 or very low and mark as potentially problematic
-        if (value === 0 || (typeof value === 'number' && value < 0.001)) {
+        // neighbors legitimately returns 0 for island nations — don't flag it
+        if (datasetId !== 'neighbors' && (value === 0 || (typeof value === 'number' && value < 0.001))) {
           return `<div style="font-size: 10px; margin: 1px 0; text-align: center;"><span style="color: #CD5C5C;">${displayName}:</span> <span style="color: white;">${formattedValue}</span></div>`;
         }
 
@@ -3813,17 +4055,49 @@ function App() {
     setSelectedDatasets(prev => prev.filter(id => id !== datasetId));
   }, []);
 
-  // Group datasets by category
+  // Per-dataset stats for the custom dropdown visualizations.
+  // Reruns when data finishes loading (globalDataCache is populated by then).
+  const datasetStats = useMemo(() => {
+    const mockFeats = Object.keys(COUNTRY_DATA).map(code => ({
+      properties: { ISO_A2: code, ISO_A3: ISO2_TO_ISO3[code] || '' }
+    }));
+    const total = mockFeats.length;
+    const stats = {};
+    Object.values(availableDatasets).forEach(dataset => {
+      if (dataset.disabled) { stats[dataset.id] = { zeroCount: total, unavailable: true, total }; return; }
+      try {
+        const values = mockFeats.map(f => { try { return dataset.getter(f); } catch { return 0; } });
+        const zeros = values.filter(v => v === 0 || v === null || v === undefined).length;
+        const nonZero = values.filter(v => v > 0).sort((a, b) => a - b);
+        if (nonZero.length === 0) { stats[dataset.id] = { unavailable: true, total }; return; }
+        const q = (p) => {
+          const i = p * (nonZero.length - 1);
+          const lo = Math.floor(i), hi = Math.ceil(i);
+          return nonZero[lo] + (nonZero[hi] - nonZero[lo]) * (i - lo);
+        };
+        const box = { min: nonZero[0], q1: q(0.25), median: q(0.5), q3: q(0.75), max: nonZero[nonZero.length - 1] };
+        // Box is "flat" when IQR is <2% of the full range — dead giveaway of fake/constant data
+        const isFlat = (box.q3 - box.q1) < (box.max - box.min) * 0.02;
+        stats[dataset.id] = { zeroCount: zeros, box, isFlat, total };
+      } catch { stats[dataset.id] = { zeroCount: total, unavailable: true, total }; }
+    });
+    return stats;
+  }, [availableDatasets, dataLoading]);
+
+  // Group datasets by category, sorted by fewest zeros.
   const datasetsByCategory = useMemo(() => {
     const categories = {};
     Object.values(availableDatasets).forEach(dataset => {
-      if (!categories[dataset.category]) {
-        categories[dataset.category] = [];
-      }
+      if (!categories[dataset.category]) categories[dataset.category] = [];
       categories[dataset.category].push(dataset);
     });
+    Object.values(categories).forEach(list =>
+      list.sort((a, b) => (datasetStats[a.id]?.zeroCount ?? Infinity) - (datasetStats[b.id]?.zeroCount ?? Infinity))
+    );
     return categories;
-  }, [availableDatasets]);
+  }, [availableDatasets, datasetStats]);
+
+  const [datasetDropdownOpen, setDatasetDropdownOpen] = useState(false);
 
   return (
     <div className="App">
@@ -3891,38 +4165,102 @@ function App() {
               </label>
             </div>
             <div style={{ position: 'relative' }}>
-              <select
-                onChange={(e) => e.target.value && handleDatasetSelect(e.target.value)}
-                value=""
+              <button
+                onClick={() => setDatasetDropdownOpen(o => !o)}
                 style={{
-                  padding: '8px 12px',
-                  backgroundColor: '#444',
-                  color: 'white',
-                  border: '1px solid #666',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  minWidth: '200px'
+                  padding: '8px 12px', backgroundColor: '#444', color: 'white',
+                  border: '1px solid #666', borderRadius: '4px', cursor: 'pointer',
+                  minWidth: '160px', textAlign: 'left', fontSize: '13px'
                 }}
               >
-                <option value="">+ Add Dataset</option>
-                {Object.entries(datasetsByCategory).map(([category, datasets]) => (
-                  <optgroup key={category} label={category}>
-                    {datasets.map(dataset => (
-                      <option
-                        key={dataset.id}
-                        value={dataset.id}
-                        disabled={selectedDatasets.includes(dataset.id) || dataset.disabled}
-                        style={{
-                          textDecoration: dataset.disabled ? 'line-through' : 'none',
-                          color: dataset.disabled ? '#ff6b6b' : 'inherit'
-                        }}
-                      >
-                        {dataset.disabled ? `❌ ${dataset.name} (${dataset.disabledReason})` : dataset.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+                + Add Dataset {datasetDropdownOpen ? '▲' : '▼'}
+              </button>
+              {datasetDropdownOpen && (
+                <div
+                  onMouseLeave={() => setDatasetDropdownOpen(false)}
+                  style={{
+                    position: 'absolute', top: '100%', left: 0, zIndex: 999,
+                    backgroundColor: '#2a2a2a', border: '1px solid #555',
+                    borderRadius: '4px', minWidth: '340px', maxHeight: '480px',
+                    overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.6)'
+                  }}
+                >
+                  {Object.entries(datasetsByCategory).map(([category, datasets]) => (
+                    <div key={category}>
+                      <div style={{
+                        padding: '5px 10px', fontSize: '10px', color: '#888',
+                        textTransform: 'uppercase', letterSpacing: '0.08em',
+                        borderBottom: '1px solid #3a3a3a', backgroundColor: '#222'
+                      }}>{category}</div>
+                      {datasets.map(dataset => {
+                        const st = datasetStats[dataset.id] || {};
+                        const isAdded = selectedDatasets.includes(dataset.id);
+                        const isDisabled = dataset.disabled || isAdded;
+                        const unavailable = st.unavailable;
+                        const zeroPct = (!unavailable && st.total) ? Math.round((st.zeroCount / st.total) * 100) : null;
+                        const isFlat = !unavailable && st.isFlat;
+                        const zeroColor = zeroPct >= 50 ? '#e05555' : zeroPct >= 20 ? '#e09040' : '#4caf50';
+                        const W = 80, H = 14;
+                        const box = st.box;
+                        return (
+                          <div
+                            key={dataset.id}
+                            onClick={() => { if (!isDisabled) { handleDatasetSelect(dataset.id); setDatasetDropdownOpen(false); } }}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '8px',
+                              padding: '5px 10px', cursor: isDisabled ? 'default' : 'pointer',
+                              opacity: isAdded ? 0.4 : isDisabled ? 0.5 : 1,
+                              borderBottom: '1px solid #333',
+                              backgroundColor: 'transparent',
+                            }}
+                            onMouseEnter={e => { if (!isDisabled) e.currentTarget.style.backgroundColor = '#383838'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                          >
+                            {/* name */}
+                            <span style={{ flex: 1, fontSize: '11px', color: dataset.disabled ? '#888' : '#ddd',
+                              textDecoration: dataset.disabled ? 'line-through' : 'none', whiteSpace: 'nowrap',
+                              overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '130px' }}>
+                              {dataset.name}
+                            </span>
+                            {/* box plot sparkline */}
+                            <svg width={W} height={H} style={{ flexShrink: 0 }}>
+                              {unavailable || !box ? (
+                                <text x="50%" y="72%" textAnchor="middle" fontSize="8" fill="#555">globe data</text>
+                              ) : (() => {
+                                const lo = box.min, hi = box.max, range = hi - lo || 1;
+                                const px = v => Math.round(((v - lo) / range) * (W - 4)) + 2;
+                                const xMin = px(box.min), xQ1 = px(box.q1), xMed = px(box.median), xQ3 = px(box.q3), xMax = px(box.max);
+                                const cy = H / 2, bh = 8, by = cy - bh / 2;
+                                const col = isFlat ? '#e09040' : '#5b9bd5';
+                                return (<>
+                                  {/* whiskers */}
+                                  <line x1={xMin} y1={cy} x2={xQ1} y2={cy} stroke={col} strokeWidth="1" />
+                                  <line x1={xMin} y1={by} x2={xMin} y2={by + bh} stroke={col} strokeWidth="1.5" />
+                                  <line x1={xQ3} y1={cy} x2={xMax} y2={cy} stroke={col} strokeWidth="1" />
+                                  <line x1={xMax} y1={by} x2={xMax} y2={by + bh} stroke={col} strokeWidth="1.5" />
+                                  {/* IQR box */}
+                                  <rect x={xQ1} y={by} width={Math.max(1, xQ3 - xQ1)} height={bh} fill={col} fillOpacity="0.25" stroke={col} strokeWidth="1" />
+                                  {/* median */}
+                                  <line x1={xMed} y1={by} x2={xMed} y2={by + bh} stroke={col} strokeWidth="2" />
+                                </>);
+                              })()}
+                            </svg>
+                            {/* zero badge */}
+                            <span style={{ fontSize: '10px', color: unavailable ? '#555' : zeroColor, whiteSpace: 'nowrap', width: '34px', textAlign: 'right' }}>
+                              {unavailable ? '—' : `${zeroPct}% 0`}
+                            </span>
+                            {/* flat/repeat warning */}
+                            {isFlat && (
+                              <span title="Suspicious: very few unique values" style={{ fontSize: '10px', color: '#e09040' }}>⚠</span>
+                            )}
+                            {isAdded && <span style={{ fontSize: '10px', color: '#888' }}>✓</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Selected Datasets Display */}
