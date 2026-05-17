@@ -1632,6 +1632,8 @@ const GlobeWrapper = ({
   const playCardClickPosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const [biddingTimerCycle, setBiddingTimerCycle] = useState(0);
   const [biddingWinner, setBiddingWinner] = useState(null); // {teamIdx, amount, category}
+  const biddingWinnerRef = useRef(null);
+  const [biddingEndCountdown, setBiddingEndCountdown] = useState(null);
   const [biddingLog, setBiddingLog] = useState([]); // [{teamIdx, type:'bid'|'pass'|'win'|'nowin', amount, category}]
   const [biddingBidCount, setBiddingBidCount] = useState(0); // number of bids placed this auction
   const [currentMode, setCurrentMode] = useState('area'); // updates to winning bid's category
@@ -2217,7 +2219,8 @@ const GlobeWrapper = ({
     if (gamePhase === 'play') {
       setPlayedCards({});
       setPlayRoundWinner(null);
-      setPlayCurrentPlayer(0);
+      const winner = biddingWinnerRef.current;
+      setPlayCurrentPlayer(winner?.teamIdx >= 0 ? winner.teamIdx : 0);
       setPlayRoundsCompleted(0);
       setPlayCountdown(null);
       setPlayTimerCycle(c => c + 1);
@@ -2240,6 +2243,25 @@ const GlobeWrapper = ({
     }, 1000);
     return () => clearInterval(interval);
   }, [playRoundWinner]);
+
+  useEffect(() => { biddingWinnerRef.current = biddingWinner; }, [biddingWinner]);
+
+  // Auto-countdown from bidding end to play phase
+  useEffect(() => {
+    if (biddingWinner === null) return;
+    setBiddingEndCountdown(3);
+    const interval = setInterval(() => {
+      setBiddingEndCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setGamePhase('play');
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [biddingWinner]);
 
   const biddingPassRef = useRef(null);
   useEffect(() => { biddingPassRef.current = handleBiddingPass; }, [handleBiddingPass]);
@@ -2741,8 +2763,14 @@ const GlobeWrapper = ({
                   })}
                 </div>
 
-                {/* Bid form */}
-                {!isAuctionOver && (
+                {/* Bid form / status */}
+                {isAuctionOver ? (
+                  <div style={{ padding: '8px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.15)', backgroundColor: '#1a1a1a', textAlign: 'center', fontSize: '13px', color: '#aaa' }}>
+                    {biddingEndCountdown != null
+                      ? <span>Starting play in <span style={{ color: 'white', fontWeight: 'bold' }}>{biddingEndCountdown}</span>...</span>
+                      : <span>Transitioning...</span>}
+                  </div>
+                ) : viewedPlayer === bidderIdx ? (
                   <div style={{ padding: '6px 14px 10px', display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.15)', backgroundColor: '#1a1a1a' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'white' }}>
                       <span style={{ color: bidderColor }}>{bidderName}</span>
@@ -2794,6 +2822,10 @@ const GlobeWrapper = ({
                         cursor: canBid ? 'pointer' : 'not-allowed', fontSize: '13px'
                       }}>Bid {effectiveAmount}</button>
                     </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 14px 10px', borderTop: '1px solid rgba(255,255,255,0.15)', backgroundColor: '#1a1a1a', textAlign: 'center', fontSize: '13px', color: '#aaa' }}>
+                    Waiting for <span style={{ color: bidderColor }}>{bidderName}</span> to bid...
                   </div>
                 )}
               </div>
@@ -3384,8 +3416,8 @@ function App() {
   const [timerDuration, setTimerDuration] = useState(10);
   const [biddingTimerDuration, setBiddingTimerDuration] = useState(20);
   const [playTimerDuration, setPlayTimerDuration] = useState(20);
-  const [cardsToPlay, setCardsToPlay] = useState(1);
-  const [extraCards, setExtraCards] = useState(1);
+  const [cardsToPlay, setCardsToPlay] = useState(8);
+  const [extraCards, setExtraCards] = useState(2);
   const [numRounds, setNumRounds] = useState(3);
   const [showSettings, setShowSettings] = useState(false);
   const [eclipseEnabled, setEclipseEnabled] = useState(true);
@@ -3439,6 +3471,14 @@ function App() {
       setCurrentPlayer(prev => (prev + 1) % 3);
     }
   }, [currentPlayer, gamePhase]);
+
+  useEffect(() => {
+    if (gamePhase !== 'country_selection') return;
+    const totalPerPlayer = cardsToPlay + extraCards;
+    if (totalPerPlayer > 0 && Object.values(playerCountries).every(list => list.length >= totalPerPlayer)) {
+      setGamePhase('bidding');
+    }
+  }, [playerCountries, gamePhase, cardsToPlay, extraCards]);
 
   const teamColors = {
     player1: '#00FFFF',
