@@ -1599,7 +1599,8 @@ const GlobeWrapper = ({
   eclipseEnabled = true,
   onConsumePlayedCards,
   playTimerDuration = 20,
-  cardsToPlay = 1
+  cardsToPlay = 1,
+  onPhaseChange
 }) => {
   const [countries, setCountries] = useState({ features: [] });
   const [hoverD, setHoverD] = useState(null);
@@ -2254,7 +2255,7 @@ const GlobeWrapper = ({
       setBiddingEndCountdown(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          setGamePhase('play');
+          onPhaseChange?.('play');
           return null;
         }
         return prev - 1;
@@ -3884,6 +3885,7 @@ function App() {
           onConsumePlayedCards={handleConsumePlayedCards}
           playTimerDuration={playTimerDuration}
           cardsToPlay={cardsToPlay}
+          onPhaseChange={setGamePhase}
         />
       </main>
     </div>
