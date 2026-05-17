@@ -2560,6 +2560,19 @@ const GlobeWrapper = ({
     }
   };
 
+  // Returns combined owned-country set for a player + all mutual allies
+  const getAlliedOwned = (playerId) => {
+    const teamIds = Object.keys(teamColors);
+    const myIdx = teamIds.indexOf(playerId);
+    const owned = new Set(playerCountries[playerId] || []);
+    teamIds.forEach((id, theirIdx) => {
+      if (theirIdx === myIdx) return;
+      if (alliancesSent[`${myIdx}-${theirIdx}`] && alliancesSent[`${theirIdx}-${myIdx}`]) {
+        (playerCountries[id] || []).forEach(c => owned.add(c));
+      }
+    });
+    return owned;
+  };
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '600px' }}>
@@ -2599,24 +2612,20 @@ const GlobeWrapper = ({
             const teamIds = Object.keys(teamColors);
             const hw = handsWon;
             const maxHW = Math.max(0, ...teamIds.map(id => hw[id] || 0));
-            const maxCR = Math.max(0, ...teamIds.map(id => {
-              const owned = new Set(playerCountries[id] || []);
+            const getAtmCR = (id) => {
+              const owned = getAlliedOwned(id);
               let cr = 0;
               Object.values(REGIONS).forEach(list => {
                 const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
                 if (valid.length > 0 && valid.every(c => owned.has(c))) cr += valid.length;
               });
               return cr;
-            }));
+            };
+            const maxCR = Math.max(0, ...teamIds.map(getAtmCR));
             let bestId = teamIds[0], bestTotal = -Infinity;
             teamIds.forEach(id => {
               const hw2 = handsWon[id] || 0;
-              const owned2 = new Set(playerCountries[id] || []);
-              let cr2 = 0;
-              Object.values(REGIONS).forEach(list => {
-                const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
-                if (valid.length > 0 && valid.every(c => owned2.has(c))) cr2 += valid.length;
-              });
+              const cr2 = getAtmCR(id);
               const hws = maxHW > 0 ? Math.round((hw2 / maxHW) * 100) : 0;
               const us = maxCR > 0 ? Math.round((cr2 / maxCR) * 100) : 0;
               const total = hws + us - (alliancePenalties[id] || 0) - (bidPenalties[id] || 0);
@@ -3426,7 +3435,7 @@ const GlobeWrapper = ({
         const teamIds = Object.keys(teamColors);
         const maxHW = Math.max(0, ...teamIds.map(id => handsWon[id] || 0));
         const getRegionCount = (id) => {
-          const owned = new Set(playerCountries[id] || []);
+          const owned = getAlliedOwned(id);
           let cr = 0;
           Object.values(REGIONS).forEach(list => {
             const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
@@ -3495,7 +3504,7 @@ const GlobeWrapper = ({
         // Compute raw stats for all players first
         const rawStats = {};
         players.forEach(([playerId]) => {
-          const owned = new Set(playerCountries[playerId] || []);
+          const owned = getAlliedOwned(playerId);
           let completedRegions = 0;
           Object.values(REGIONS).forEach(list => {
             const valid = list.filter(c => !EXCLUDED_COUNTRIES.has(c));
@@ -4000,10 +4009,10 @@ function App() {
                 Select Timer (s):
                 <input
                   type="number"
-                  min="3"
+                  min="1"
                   max="120"
                   value={timerDuration}
-                  onChange={e => setTimerDuration(Math.max(3, Number(e.target.value)))}
+                  onChange={e => setTimerDuration(Math.max(1, Number(e.target.value)))}
                   style={{
                     width: '60px', padding: '2px 6px', backgroundColor: '#444',
                     color: 'white', border: '1px solid #666', borderRadius: '4px', fontSize: '12px'
