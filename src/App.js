@@ -1745,6 +1745,7 @@ const GlobeWrapper = ({
   const [playedCards, setPlayedCards] = useState({}); // { playerIdx: [code, ...] }
   const [playCurrentPlayer, setPlayCurrentPlayer] = useState(0);
   const [handsWon, setHandsWon] = useState({}); // { player1: 0, ... }
+  const handsWonAtRoundStartRef = useRef({});
   const [playRoundWinner, setPlayRoundWinner] = useState(null);
   const [playTimerCycle, setPlayTimerCycle] = useState(0);
   const [animatingPlayCode, setAnimatingPlayCode] = useState(null);
@@ -2289,13 +2290,16 @@ const GlobeWrapper = ({
         ? Object.entries(newPlayed).filter(([, code]) => eclipseSet.has(code))
         : [];
       let winnerIdx;
-      if (inRegion.length === 1) {
+      if (eclipseSet && inRegion.length === 1) {
+        // Sole player in eclipse region wins automatically
         winnerIdx = Number(inRegion[0][0]);
       } else {
-        winnerIdx = 0;
+        // Multiple players in eclipse region → compare only those; zero → compare all
+        const candidates = (eclipseSet && inRegion.length > 1) ? inRegion : Object.entries(newPlayed);
+        winnerIdx = Number(candidates[0][0]);
         let winnerVal = -Infinity;
         let winnerArea = -Infinity;
-        Object.entries(newPlayed).forEach(([idxStr, code]) => {
+        candidates.forEach(([idxStr, code]) => {
           const val = getCountryValue(code);
           const feat = countries.features.find(f => getCountryCode(f) === code);
           const area = (areaGetter && feat) ? areaGetter(feat) : 0;
@@ -2343,7 +2347,8 @@ const GlobeWrapper = ({
           const teamIds = Object.keys(teamColors);
           const winnerId = teamIds[bidWinner.teamIdx];
           setHandsWon(currentHandsWon => {
-            if (winnerId && (currentHandsWon[winnerId] || 0) < bidWinner.amount) {
+            const handsThisRound = (currentHandsWon[winnerId] || 0) - (handsWonAtRoundStartRef.current[winnerId] || 0);
+            if (winnerId && handsThisRound < bidWinner.amount) {
               setBidPenalties(p => ({ ...p, [winnerId]: (p[winnerId] || 0) + bidPenaltyAmount }));
             }
             return currentHandsWon;
@@ -2361,8 +2366,12 @@ const GlobeWrapper = ({
   }, [onConsumePlayedCards, playedCards, cardsToPlay, teamColors, bidPenaltyAmount]);
   useEffect(() => { resetPlayRoundRef.current = resetPlayRound; }, [resetPlayRound]);
 
+  const handsWonRef = useRef({});
+  useEffect(() => { handsWonRef.current = handsWon; }, [handsWon]);
+
   useEffect(() => {
     if (gamePhase === 'play') {
+      handsWonAtRoundStartRef.current = { ...handsWonRef.current };
       setPlayedCards({});
       setPlayRoundWinner(null);
       const winner = biddingWinnerRef.current;
@@ -3802,6 +3811,12 @@ function App() {
     loadGlobalData();
   }, []);
 
+  const teamColors = {
+    player1: '#00FFFF',
+    player2: '#FF00FF',
+    player3: '#00FF00'
+  };
+
   const handleCountrySelect = useCallback((countryCode) => {
     setSelectedCountries(prev => [...prev, countryCode]);
 
@@ -3812,9 +3827,9 @@ function App() {
     }));
 
     if (gamePhase === 'country_selection') {
-      setCurrentPlayer(prev => (prev + 1) % 3);
+      setCurrentPlayer(prev => (prev + 1) % Object.keys(teamColors).length);
     }
-  }, [currentPlayer, gamePhase]);
+  }, [currentPlayer, gamePhase, teamColors]);
 
   useEffect(() => {
     if (gamePhase !== 'country_selection') return;
@@ -3823,12 +3838,6 @@ function App() {
       setGamePhase('bidding');
     }
   }, [playerCountries, gamePhase, cardsToPlay, extraCards]);
-
-  const teamColors = {
-    player1: '#00FFFF',
-    player2: '#FF00FF',
-    player3: '#00FF00'
-  };
 
   const resetGame = useCallback(() => {
     setSelectedCountries([]);
