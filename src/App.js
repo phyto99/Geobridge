@@ -3782,6 +3782,29 @@ function App() {
   const [dataStatus, setDataStatus] = useState('Initializing...');
   const [useDataDrivenRegions, setUseDataDrivenRegions] = useState(false);
 
+  // Read settings from URL params injected by admin panel
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('timerDuration'))         setTimerDuration(Number(p.get('timerDuration')));
+    if (p.get('biddingTimerDuration'))  setBiddingTimerDuration(Number(p.get('biddingTimerDuration')));
+    if (p.get('playTimerDuration'))     setPlayTimerDuration(Number(p.get('playTimerDuration')));
+    if (p.get('cardsToPlay'))           setCardsToPlay(Number(p.get('cardsToPlay')));
+    if (p.get('extraCards'))            setExtraCards(Number(p.get('extraCards')));
+    if (p.get('numRounds'))             setNumRounds(Number(p.get('numRounds')));
+    if (p.get('eclipseEnabled'))        setEclipseEnabled(p.get('eclipseEnabled') !== 'false');
+    if (p.get('alliancePenalty'))       setAlliancePenaltyAmount(Number(p.get('alliancePenalty')));
+    if (p.get('bidPenalty'))            setBidPenaltyAmount(Number(p.get('bidPenalty')));
+    // Team colors from admin color manager — hex without #
+    const c1 = p.get('color1'), c2 = p.get('color2'), c3 = p.get('color3');
+    if (c1 || c2 || c3) {
+      setTeamColors({
+        player1: c1 ? '#' + c1 : '#00FFFF',
+        player2: c2 ? '#' + c2 : '#FF00FF',
+        player3: c3 ? '#' + c3 : '#00FF00',
+      });
+    }
+  }, []);
+
   // Initialize global data on component mount
   useEffect(() => {
     const loadGlobalData = async () => {
@@ -3824,11 +3847,11 @@ function App() {
     }
   }, [playerCountries, gamePhase, cardsToPlay, extraCards]);
 
-  const teamColors = {
+  const [teamColors, setTeamColors] = useState({
     player1: '#00FFFF',
     player2: '#FF00FF',
     player3: '#00FF00'
-  };
+  });
 
   const resetGame = useCallback(() => {
     setSelectedCountries([]);
