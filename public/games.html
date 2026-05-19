@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Geobridge — Game Compatibility Matrix</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#ccc;font-family:'Segoe UI',monospace,sans-serif;font-size:12px;line-height:1.4}
+h1{font-size:18px;color:#fff;padding:16px 20px 4px;letter-spacing:2px;text-transform:uppercase}
+.subtitle{padding:2px 20px 12px;color:#666;font-size:11px}
+
+/* LEGEND */
+.legend{display:flex;gap:10px;padding:8px 20px 12px;flex-wrap:wrap;border-bottom:1px solid #222}
+.leg{display:flex;align-items:center;gap:6px;font-size:11px}
+.dot{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.t1{background:#0d3d0d}.t2{background:#3d3000}.t3{background:#3d1a00}.t4{background:#3d0000}.t5{background:#1a003d}
+
+/* SYSTEM BOX */
+.sysbox{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 20px;border-bottom:1px solid #222}
+.scard{background:#111;border:1px solid #222;border-radius:4px;padding:8px 10px}
+.scard h3{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.stag{display:inline-block;background:#1a1a2e;color:#4499ff;border:1px solid #334;border-radius:2px;padding:1px 5px;font-size:10px;margin:1px}
+.stag.green{background:#0d2010;color:#44ff88;border-color:#1a4428}
+.stag.gold{background:#2a1f00;color:#ffcc44;border-color:#443300}
+.stag.red{background:#2a0a0a;color:#ff6644;border-color:#441a1a}
+.stag.purple{background:#1a0a2a;color:#cc88ff;border-color:#331a44}
+
+/* MAIN TABLE */
+.wrap{overflow-x:auto;padding:0 0 40px}
+table{border-collapse:collapse;width:100%;min-width:1400px}
+thead tr{background:#111;position:sticky;top:0;z-index:10}
+th{padding:7px 8px;text-align:left;color:#666;font-size:10px;text-transform:uppercase;letter-spacing:.8px;border-bottom:2px solid #222;white-space:nowrap;font-weight:600}
+td{padding:6px 8px;border-bottom:1px solid #151515;vertical-align:top;font-size:11px}
+tr:hover td{background:#111}
+
+/* tier row colors */
+tr.t1 td{border-left:3px solid #1a7a1a}
+tr.t2 td{border-left:3px solid #7a6400}
+tr.t3 td{border-left:3px solid #7a3800}
+tr.t4 td{border-left:3px solid #7a0000}
+tr.t5 td{border-left:3px solid #4400aa}
+
+/* BADGES */
+.badge{display:inline-block;border-radius:2px;padding:1px 5px;font-size:10px;font-weight:700;white-space:nowrap}
+.b-trick{background:#0a2a0a;color:#44cc44;border:1px solid #1a4a1a}
+.b-auction{background:#2a2200;color:#ccaa00;border:1px solid #443800}
+.b-draft{background:#0a1a2a;color:#4488cc;border:1px solid #1a3050}
+.b-bluff{background:#2a0a2a;color:#cc44cc;border:1px solid #441a44}
+.b-engine{background:#1a1a00;color:#aaaa00;border:1px solid #333300}
+.b-4x{background:#2a0000;color:#ff4444;border:1px solid #440000}
+.b-coop{background:#001a1a;color:#00cccc;border:1px solid #003333}
+.b-war{background:#1a0a00;color:#cc6600;border:1px solid #442200}
+.b-dex{background:#1a001a;color:#aa44aa;border:1px solid #330033}
+
+/* PILL indicators */
+.pill{display:inline-block;border-radius:10px;padding:1px 7px;font-size:10px;white-space:nowrap;margin:1px 0}
+.p-yes{background:#0d2010;color:#44cc66;border:1px solid #1a4428}
+.p-mod{background:#2a1f00;color:#ffaa22;border:1px solid #443300}
+.p-no{background:#1a0505;color:#775555;border:1px solid #331010}
+.p-perf{background:#0a1a2a;color:#44aaff;border:1px solid #1a3a5a}
+.p-na{background:#111;color:#444;border:1px solid #222}
+
+/* ADJ level */
+.adj{font-weight:700;font-size:11px;padding:2px 8px;border-radius:3px;white-space:nowrap}
+.adj1{background:#0d3d0d;color:#55ff55;border:1px solid #1a6a1a} /* plug-in */
+.adj2{background:#3d3000;color:#ffdd44;border:1px solid #6a5500} /* light */
+.adj3{background:#3d1a00;color:#ff9944;border:1px solid #6a3300} /* moderate */
+.adj4{background:#3d0000;color:#ff5544;border:1px solid #6a1111} /* major */
+.adj5{background:#1a003d;color:#aa77ff;border:1px solid #330077} /* reimagine */
+
+/* CHANGES list */
+ul.chg{list-style:none;padding:0}
+ul.chg li{padding:1px 0;color:#999}
+ul.chg li::before{content:'▸ ';color:#444}
+ul.chg li.add::before{content:'+ ';color:#44aa44}
+ul.chg li.rm::before{content:'− ';color:#aa4444}
+ul.chg li.mod::before{content:'~ ';color:#aa8800}
+ul.chg li.keep::before{content:'✓ ';color:#445566}
+
+.gamename{font-weight:700;color:#eee;font-size:12px}
+.gamesub{color:#555;font-size:10px;margin-top:1px}
+.hook{color:#aaccff;font-style:italic;font-size:11px}
+.stat-used{color:#88aacc;font-size:10px}
+
+/* section headers */
+tr.sec td{background:#0d0d14;color:#4466aa;font-size:10px;text-transform:uppercase;letter-spacing:2px;padding:8px 8px 6px;font-weight:700;border-bottom:1px solid #1a1a2a;border-left:none!important}
+
+/* dev time */
+.dev{color:#556;font-size:10px;font-style:italic}
+</style>
+</head>
+<body>
+
+<h1>Geobridge — Strategy Game Compatibility Matrix</h1>
+<div class="subtitle">38 games · 9 compatibility columns · color-coded by adjustment tier · fully analysed against existing mechanics</div>
+
+<!-- SYSTEM SNAPSHOT -->
+<div class="sysbox">
+  <div class="scard">
+    <h3>Core Mechanics (Existing)</h3>
+    <span class="stag green">Round-robin Draft</span>
+    <span class="stag green">Bridge-style Auction</span>
+    <span class="stag green">Trick-taking</span>
+    <span class="stag green">Globe Viz</span>
+    <span class="stag green">Alliance/Penalty</span>
+    <span class="stag green">Auto-timer</span>
+    <span class="stag green">3-team</span>
+  </div>
+  <div class="scard">
+    <h3>Eclipse Mechanic (Unique)</h3>
+    <span class="stag purple">Bid a world region alongside stat</span><br>
+    <span class="stag purple">Trick played: if EXACTLY 1 card from that region → auto-win regardless of stat values</span><br>
+    <span class="stag red">0 cards or 2+ cards in region → normal highest-stat wins</span>
+  </div>
+  <div class="scard">
+    <h3>Biddable Stats (7)</h3>
+    <span class="stag gold">GDP</span>
+    <span class="stag gold">Area</span>
+    <span class="stag gold">Population</span>
+    <span class="stag gold">Neighbors</span>
+    <span class="stag gold">Forest %</span>
+    <span class="stag gold">Internet %</span>
+    <span class="stag gold">Military %GDP</span>
+    <br><span style="color:#555;font-size:10px;margin-top:4px;display:block">+ 6 more available: pop density, GDP/cap, econ complexity, digital, energy security, urban %</span>
+  </div>
+  <div class="scard">
+    <h3>Scoring Formula</h3>
+    <span class="stag red">handsWon − alliancePenalty</span>
+    <span class="stag gold">+ completedRegions (continent control)</span>
+    <br><span style="color:#555;font-size:10px;margin-top:4px;display:block">10 countries/player · 8 play + 2 extra · currentMode = winning bid's stat</span>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="leg"><div class="dot t1"></div><span><strong style="color:#55ff55">TIER 1 — Plug-in</strong> &lt;5% new code</span></div>
+  <div class="leg"><div class="dot t2"></div><span><strong style="color:#ffdd44">TIER 2 — Light Mod</strong> 10–25%</span></div>
+  <div class="leg"><div class="dot t3"></div><span><strong style="color:#ff9944">TIER 3 — Moderate</strong> 25–50%</span></div>
+  <div class="leg"><div class="dot t4"></div><span><strong style="color:#ff5544">TIER 4 — Major</strong> 50–75%</span></div>
+  <div class="leg"><div class="dot t5"></div><span><strong style="color:#aa77ff">TIER 5 — Reimagine</strong> 75%+</span></div>
+  <div class="leg" style="margin-left:20px"><span style="color:#444">│</span></div>
+  <div class="leg"><span class="pill p-yes">Yes</span> native fit</div>
+  <div class="leg"><span class="pill p-mod">Mod</span> needs adjustment</div>
+  <div class="leg"><span class="pill p-no">No</span> remove/irrelevant</div>
+  <div class="leg"><span class="pill p-perf">Perfect</span> exceptional fit</div>
+  <div class="leg"><span class="pill p-na">N/A</span> not applicable</div>
+</div>
+
+<div class="wrap">
+<table>
+<thead>
+<tr>
+  <th style="width:140px">Game</th>
+  <th style="width:80px">Category</th>
+  <th style="width:60px">Players<br>Native→3T</th>
+  <th style="width:55px">Hand<br>Size</th>
+  <th style="width:65px">Bidding<br>Phase</th>
+  <th style="width:65px">Globe<br>Role</th>
+  <th style="width:65px">Eclipse<br>Fit</th>
+  <th style="width:65px">Stats<br>Role</th>
+  <th style="width:65px">Draft<br>Phase</th>
+  <th style="width:65px">Alliance<br>System</th>
+  <th style="width:80px">Adjustment</th>
+  <th style="width:200px">Changes Required</th>
+  <th style="width:160px">Stays Same</th>
+  <th style="width:170px">Killer Hook on Globe</th>
+  <th style="width:60px">Dev Est.</th>
+</tr>
+</thead>
+<tbody>
+
+<!-- ═══════════════════════════════════════════ TIER 1 ═══ -->
+<tr class="sec"><td colspan="15">▌ TIER 1 — PLUG-IN READY · existing code handles ~95%</td></tr>
+
+<tr class="t1">
+  <td><div class="gamename">Bridge</div><div class="gamesub">Current base game</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>4 → <span style="color:#ffaa44">3✱</span></td>
+  <td>10</td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj1">Plug-in</span></td>
+  <td><ul class="chg">
+    <li class="keep">This IS the current game</li>
+    <li class="mod">3-player bridge variant (no dummy hand)</li>
+    <li class="mod">Score: bid obligation = handsWon ≥ bid</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Everything</li>
+  </ul></td>
+  <td class="hook">Eclipse = vulnerability region. Bidding a region you hold many of is high-risk/high-reward.</td>
+  <td><span class="dev">0h</span></td>
+</tr>
+
+<tr class="t1">
+  <td><div class="gamename">Double Dummy</div><div class="gamesub">All hands face-up</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>4 → 3</td>
+  <td>10</td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj1">Plug-in</span></td>
+  <td><ul class="chg">
+    <li class="add">Show all playerCountries to all players</li>
+    <li class="mod">Toggle: hide/reveal opponent hands</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">All phases unchanged</li>
+    <li class="keep">Eclipse, bidding, scoring</li>
+  </ul></td>
+  <td class="hook">Globe highlights all 30 countries simultaneously. Pure optimization — no hidden info.</td>
+  <td><span class="dev">1h</span></td>
+</tr>
+
+<tr class="t1">
+  <td><div class="gamename">Whist</div><div class="gamesub">No bidding, pure tricks</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>4 → 3</td>
+  <td>10</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj1">Plug-in</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove auction phase entirely</li>
+    <li class="mod">currentMode fixed (e.g. GDP always)</li>
+    <li class="mod">Or rotate stat each round</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft, play, globe, eclipse</li>
+    <li class="keep">Alliance system</li>
+    <li class="keep">Timer</li>
+  </ul></td>
+  <td class="hook">Eclipse region rotates each round — pre-announced. Players must hold geographic diversity.</td>
+  <td><span class="dev">2h</span></td>
+</tr>
+
+<!-- ═══════════════════════════════════════════ TIER 2 ═══ -->
+<tr class="sec"><td colspan="15">▌ TIER 2 — LIGHT MODIFICATIONS · one or two new systems</td></tr>
+
+<tr class="t2">
+  <td><div class="gamename">Spades</div><div class="gamesub">Bid exact trick count, no auction</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>4 → 3</td>
+  <td>10</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj2">Light</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove competitive auction</li>
+    <li class="add">Each player bids their own trick count (0–10)</li>
+    <li class="add">Score: made bid = +bid×10, overtricks = +1, fail = −bid×10</li>
+    <li class="mod">One stat fixed as "spades" (trump), e.g. Area always wins ties</li>
+    <li class="add">Nil bid option (bid 0, must take 0)</li>
+    <li class="mod">Eclipse: still region auto-win on exactly 1</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft, globe, play phase</li>
+    <li class="keep">Eclipse mechanic</li>
+    <li class="keep">Timer, alliance</li>
+  </ul></td>
+  <td class="hook">Nil bid = declare no country you own will win a trick. Devastating if eclipse fires on you.</td>
+  <td><span class="dev">4h</span></td>
+</tr>
+
+<tr class="t2">
+  <td><div class="gamename">Hearts</div><div class="gamesub">Avoid penalty countries, shoot the moon</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>4 → 3</td>
+  <td>10</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj2">Light</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove auction entirely</li>
+    <li class="add">Penalty stat: highest Population country = "Queen of Spades" (+13pts penalty)</li>
+    <li class="add">All Population-top-25% countries = penalty cards (−1pt each trick taken)</li>
+    <li class="add">Shoot the Moon: take ALL penalties → everyone else gets +26</li>
+    <li class="mod">Eclipse: region where penalty countries cluster (e.g. Asia) — surviving eclipse means avoiding them</li>
+    <li class="mod">Alliance = agree not to shoot moon together</li>
+    <li class="add">Passing phase: before play, pass 3 countries to left</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft, globe, play phase structure</li>
+    <li class="keep">Timer, trick resolution</li>
+  </ul></td>
+  <td class="hook">Asia has most high-pop countries — the eclipse region becomes a geographic death trap or moon-shot enabler.</td>
+  <td><span class="dev">6h</span></td>
+</tr>
+
+<tr class="t2">
+  <td><div class="gamename">Oh Hell / Wizard</div><div class="gamesub">Bid exactly, variable hand sizes</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>3–6 → <span style="color:#44ff88">Native 3</span></td>
+  <td>1→10→1</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj2">Light</span></td>
+  <td><ul class="chg">
+    <li class="mod">Draft 1 country round 1, 2 in round 2 … up to 10, then back down</li>
+    <li class="mod">Bidding = each player bids exact trick count (no competitive auction)</li>
+    <li class="add">Score: exact bid = +bid+10, wrong = −|bid−actual|×10</li>
+    <li class="add">Wizard card: 1 country per player is "wildcard" — always wins if played</li>
+    <li class="add">Jester card: 1 country per player always loses</li>
+    <li class="mod">Wizard/Jester = highest and lowest stat country in your hand</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe, play phase, eclipse</li>
+    <li class="keep">Trick resolution, timer</li>
+  </ul></td>
+  <td class="hook">Round 1 = 1 country each, globe shows 3 dots. Round 10 = globe fully lit. Spectacular visual arc.</td>
+  <td><span class="dev">8h</span></td>
+</tr>
+
+<tr class="t2">
+  <td><div class="gamename">War / Battle</div><div class="gamesub">Flip and compare, no decisions</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>2 → 3</td>
+  <td>10</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-no">N/A</span></td>
+  <td><span class="adj adj2">Light</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove bidding, player choice</li>
+    <li class="add">Auto-play top of hand each round</li>
+    <li class="add">Tie = "war": each player reveals next country, higher of those wins all 4</li>
+    <li class="mod">Stat rotates each round (pre-announced)</li>
+    <li class="mod">Eclipse fires randomly (dice chance)</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft, globe, trick resolution</li>
+  </ul></td>
+  <td class="hook">Pure geography luck — great teaching mode. Stats rotate so all datasets get screen time.</td>
+  <td><span class="dev">3h</span></td>
+</tr>
+
+<tr class="t2">
+  <td><div class="gamename">500</div><div class="gamesub">Extended bidding, nullo bids, misère</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>4 → 3</td>
+  <td>10</td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj2">Light</span></td>
+  <td><ul class="chg">
+    <li class="add">Nullo bid: win ZERO tricks — highest score for doing so</li>
+    <li class="add">Open Misère: reveal all countries, bid to take no tricks</li>
+    <li class="mod">Bidding table: 6♠=40, 7♥=160, 10NT=520 pts — mapped to stat categories</li>
+    <li class="add">Kitty: 3 unselected countries — winner of auction picks up all 3, discards 3</li>
+    <li class="mod">No-trump bid = eclipse disabled that round</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft, auction, play, eclipse</li>
+    <li class="keep">Alliance, timer, globe</li>
+  </ul></td>
+  <td class="hook">Open Misère = globe shows your full hand to opponents. Pressure play using geographic reveals.</td>
+  <td><span class="dev">7h</span></td>
+</tr>
+
+<tr class="t2">
+  <td><div class="gamename">Pinochle</div><div class="gamesub">Meld scoring + trick-taking</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>4 → 3</td>
+  <td>12</td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj2">Light</span></td>
+  <td><ul class="chg">
+    <li class="add">Pre-play meld phase: declare geographic sets for bonus points</li>
+    <li class="add">Melds: 3 continents = run (30pts), all top-GDP = flush (150pts)</li>
+    <li class="add">Aces = countries with highest stat value in each category</li>
+    <li class="mod">Bidding winner must reach bid total (tricks + melds)</li>
+    <li class="mod">Last trick = +10 bonus</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft, auction, play, eclipse</li>
+    <li class="keep">Globe, timer, alliance</li>
+  </ul></td>
+  <td class="hook">Meld = light up continent blocks on globe before play. Visual continent-control previews.</td>
+  <td><span class="dev">10h</span></td>
+</tr>
+
+<!-- ═══════════════════════════════════════════ TIER 3 ═══ -->
+<tr class="sec"><td colspan="15">▌ TIER 3 — MODERATE REWORK · new phase or scoring system required</td></tr>
+
+<tr class="t3">
+  <td><div class="gamename">Euchre</div><div class="gamesub">5-card, declare trump, go alone</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>4 → 3</td>
+  <td>5</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="mod">Draft only 5 countries (not 10)</li>
+    <li class="mod">Bidding: choose trump stat or pass; if all pass, dealer forced to pick</li>
+    <li class="add">Going alone: skip alliance, play solo — if win 5 tricks = 4pts instead of 2</li>
+    <li class="add">Euchre: if bidder doesn't win 3 tricks, opponents score 2pts</li>
+    <li class="mod">Eclipse: only 1 region available per round — rotates</li>
+    <li class="add">Multi-round scoring to 10 points total</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Play phase, globe, timer</li>
+    <li class="keep">Eclipse (modified)</li>
+  </ul></td>
+  <td class="hook">"Going alone" with 5 countries — you're betting your best 5 nations vs 2 opponents' 10.</td>
+  <td><span class="dev">12h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">High Society</div><div class="gamesub">Blind auction, least GDP eliminated</div></td>
+  <td><span class="badge b-auction">Auction</span></td>
+  <td>4–8 → 3</td>
+  <td>—</td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking play phase</li>
+    <li class="rm">Remove draft</li>
+    <li class="mod">Auction IS the game: bid currency (tokens) for prestige countries</li>
+    <li class="add">Prestige countries = highest GDP countries drawn face-up</li>
+    <li class="add">End: player with fewest tokens is eliminated even if most prestige</li>
+    <li class="add">Negative cards: 3 "scandal" countries auctioned — winner must take them</li>
+    <li class="mod">Eclipse: 1 "eclipse region" card reverses scoring for that auction</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Auction mechanic, globe</li>
+    <li class="keep">Stat display, timer</li>
+  </ul></td>
+  <td class="hook">GDP irony — biggest economy countries are desirable but spending too much to get them eliminates you.</td>
+  <td><span class="dev">14h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">For Sale</div><div class="gamesub">Buy then flip for profit</div></td>
+  <td><span class="badge b-auction">Auction</span></td>
+  <td>3–6 → <span style="color:#44ff88">Native 3</span></td>
+  <td>—</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="add">Phase 1: Blind bid for countries (highest bidder pays full, others pay half)</li>
+    <li class="add">Phase 2: Simultaneously reveal a country from hand to "claim" a scoring tile</li>
+    <li class="mod">Scoring tiles = stat benchmarks (e.g. "win $50M GDP tile")</li>
+    <li class="add">Highest country played claims highest tile; lowest played gets $0</li>
+    <li class="mod">Eclipse region: countries in that region score double in phase 2</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Auction bidding, globe, stat display</li>
+  </ul></td>
+  <td class="hook">Phase 2 is simultaneous blind — you don't know what opponents hold. Geographic bluffing.</td>
+  <td><span class="dev">14h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">Skull</div><div class="gamesub">Bluff, then flip without hitting poison</div></td>
+  <td><span class="badge b-bluff">Bluffing</span></td>
+  <td>3–6 → <span style="color:#44ff88">Native 3</span></td>
+  <td>4</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-na">N/A</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="mod">Draft 4 countries per player; 1 is secretly marked "skull" (lowest stat)</li>
+    <li class="add">Place phase: play countries face-down on globe (stacked per player)</li>
+    <li class="add">Bid phase: bid how many you can flip without hitting a skull</li>
+    <li class="add">Flip in any order — but must flip your own stack first</li>
+    <li class="add">Hit skull = lose one country permanently; win twice = game win</li>
+    <li class="mod">Skull = country with lowest currentMode stat</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft phase (reduced), globe, bidding structure</li>
+  </ul></td>
+  <td class="hook">Countries placed face-down ON the globe. Flip animation reveals territory. Skull lights red.</td>
+  <td><span class="dev">16h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">Texas Hold'em Poker</div><div class="gamesub">Community reveals, bluff and bet</div></td>
+  <td><span class="badge b-bluff">Bluffing</span></td>
+  <td>2–9 → 3</td>
+  <td>2 hole</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="mod">Draft 2 countries per player (hole cards — hidden)</li>
+    <li class="add">Globe reveals 5 community countries: flop (3), turn (1), river (1)</li>
+    <li class="add">Betting round after each reveal using token currency</li>
+    <li class="add">Best 5-country "hand" from 7: highest combined stat, continent sets, etc.</li>
+    <li class="add">Hand rankings: Royal Flush = 5 continents + highest GDP; Straight = 5 consecutive neighbors</li>
+    <li class="mod">Eclipse = community country in region auto-scores double</li>
+    <li class="add">Fold option removes player from round but keeps countries</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe central display, stat system</li>
+    <li class="keep">Draft (reduced)</li>
+  </ul></td>
+  <td class="hook">Globe "community cards" revealed as geographically neighboring countries — creates realistic regions of play.</td>
+  <td><span class="dev">20h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">Blackjack / 21</div><div class="gamesub">Hit or stand, sum near target</div></td>
+  <td><span class="badge b-trick">Trick-taking</span></td>
+  <td>1–7 → 3</td>
+  <td>2+</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="mod">Draft 2 countries then hit (take more) or stand</li>
+    <li class="add">Target = median world GDP (or chosen stat) scaled to 21-equivalent</li>
+    <li class="add">Bust = go over target stat sum → automatic loss</li>
+    <li class="add">Natural 21 = exactly 2 countries summing to target = pays 3:2</li>
+    <li class="mod">Each stat category = different target number (GDP vs population vs area)</li>
+    <li class="mod">Eclipse region: countries in region count ×1.5 for sum</li>
+    <li class="add">Split: if 2 countries same continent, can split into 2 hands</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe, stat display, draft</li>
+  </ul></td>
+  <td class="hook">Globe shows running stat total as you hit. Overshoot lights the globe red — dramatic bust visual.</td>
+  <td><span class="dev">10h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">Risk-Lite</div><div class="gamesub">Territory control, adjacent combat</div></td>
+  <td><span class="badge b-war">Wargame</span></td>
+  <td>2–6 → <span style="color:#44ff88">Native 3</span></td>
+  <td>10</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking, bidding</li>
+    <li class="add">Attack adjacent country: compare currentMode stat (attacker vs defender)</li>
+    <li class="add">Reinforcement points each round based on continent control</li>
+    <li class="add">Must own contiguous block to get continent bonus</li>
+    <li class="mod">Eclipse: entire region can be invaded in one action this round</li>
+    <li class="mod">Alliance = non-aggression pact; breaking = penalty tiles</li>
+    <li class="add">Elimination: lose all countries = out</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (essential), draft, stat comparison</li>
+    <li class="keep">Alliance + penalty system</li>
+    <li class="keep">Eclipse region concept</li>
+  </ul></td>
+  <td class="hook">Adjacency already encoded in globe. Eclipse region = blitzkrieg on a continent. Stat = military power.</td>
+  <td><span class="dev">24h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">Stratego</div><div class="gamesub">Hidden ranks, reveal on attack</div></td>
+  <td><span class="badge b-war">Wargame</span></td>
+  <td>2 → 3</td>
+  <td>10</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove auction</li>
+    <li class="add">Countries hidden on globe — opponent sees territory but not stat</li>
+    <li class="add">Attack adjacent: both reveal stat, lower loses and is removed</li>
+    <li class="add">Spy country: loses to everyone EXCEPT Marshal (highest stat in opponent's hand)</li>
+    <li class="add">Bomb countries: immovable, kill attacker — 2 per player</li>
+    <li class="add">Miner countries: only unit that defuses bombs (smallest-area countries)</li>
+    <li class="mod">Eclipse: hidden region — attacker chooses which region stat applies this combat</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (essential), draft, stat comparison</li>
+    <li class="keep">Hidden info mechanic (viewedPlayer)</li>
+  </ul></td>
+  <td class="hook">Globe as the board. Countries face-down on their territory. Reveal = flag animation. Spy = lowest GDP.</td>
+  <td><span class="dev">20h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">Power Grid</div><div class="gamesub">Auction infrastructure, supply networks</div></td>
+  <td><span class="badge b-auction">Auction</span></td>
+  <td>2–6 → <span style="color:#44ff88">Native 3</span></td>
+  <td>—</td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="mod">Draft = bid for countries as grid infrastructure</li>
+    <li class="add">Each country produces resources based on its stats (GDP=coal, Forest=biomass, etc.)</li>
+    <li class="add">Connect adjacent countries = pay connection cost (based on distance)</li>
+    <li class="add">Each round: buy resources → power cities → collect income</li>
+    <li class="add">Win: power the most countries when trigger reached</li>
+    <li class="mod">Eclipse: blackout region — those countries produce 0 this round</li>
+    <li class="mod">Alliance: shared grid connection discounts</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (adjacency essential), auction, stat use</li>
+    <li class="keep">Alliance + penalty</li>
+  </ul></td>
+  <td class="hook">Globe shows power grid lines between owned countries. Eclipse = continental blackout. Visual feast.</td>
+  <td><span class="dev">30h</span></td>
+</tr>
+
+<tr class="t3">
+  <td><div class="gamename">Canasta</div><div class="gamesub">Meld continent sets, wild cards</div></td>
+  <td><span class="badge b-draft">Set Collection</span></td>
+  <td>4 → 3</td>
+  <td>11</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj3">Moderate</span></td>
+  <td><ul class="chg">
+    <li class="add">Melds: lay down 3+ countries from same continent face-up (score points)</li>
+    <li class="add">Canasta: complete continent (all countries) = 500 bonus</li>
+    <li class="add">Wild cards: 2 "disputed" countries can join any continent meld</li>
+    <li class="add">Draw from discard pile (take opponent's last country)</li>
+    <li class="mod">Bidding: choose which stat = "natural" vs "wild" value each round</li>
+    <li class="mod">Eclipse: completing an eclipse region meld scores double</li>
+    <li class="add">Going out: play all countries from hand — round ends</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft, globe, alliance, stat system</li>
+  </ul></td>
+  <td class="hook">Complete Africa on the globe — all African countries glow solid. Geographic set-completion.</td>
+  <td><span class="dev">20h</span></td>
+</tr>
+
+<!-- ═══════════════════════════════════════════ TIER 4 ═══ -->
+<tr class="sec"><td colspan="15">▌ TIER 4 — MAJOR REBUILD · new architecture, existing mechanics become subsystems</td></tr>
+
+<tr class="t4">
+  <td><div class="gamename">Sushi Go</div><div class="gamesub">Draft-pass, collect scoring sets</div></td>
+  <td><span class="badge b-draft">Drafting</span></td>
+  <td>2–5 → 3</td>
+  <td>10→pass</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj4">Major</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking, bidding, play phase</li>
+    <li class="mod">Draft: pick 1 country, pass remaining hand LEFT simultaneously</li>
+    <li class="add">Scoring sets: 3 same-continent = 10pts, highest GDP set = 6pts, etc.</li>
+    <li class="add">Chopsticks token: play 2 countries in one turn (exchange for token)</li>
+    <li class="add">3 rounds, points accumulate</li>
+    <li class="mod">Eclipse: 1 special "eclipse country" per round — holder scores 5pts if unique</li>
+    <li class="add">Pudding: keep across all 3 rounds — most pudding at end = +6, fewest = −6</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe visualization, stat display, timer</li>
+    <li class="keep">Round structure</li>
+  </ul></td>
+  <td class="hook">Passing hands — watch the globe light up as countries migrate between players each turn.</td>
+  <td><span class="dev">20h</span></td>
+</tr>
+
+<tr class="t4">
+  <td><div class="gamename">7 Wonders</div><div class="gamesub">Draft civilizations, multi-axis scoring</div></td>
+  <td><span class="badge b-draft">Drafting</span></td>
+  <td>3–7 → <span style="color:#44ff88">Native 3</span></td>
+  <td>7/age</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj4">Major</span></td>
+  <td><ul class="chg">
+    <li class="mod">Draft = pick 1 country per turn, pass hand (3 Ages of 7 turns)</li>
+    <li class="add">Countries have types: resource (GDP), military (military %), science (internet %), civic</li>
+    <li class="add">Build: play country to your civilization board for ongoing effects</li>
+    <li class="add">Military: each Age, compare military % total with neighbors — win = +1 shield/loss = −1pt</li>
+    <li class="add">Science: collect sets of symbols for exponential pts</li>
+    <li class="add">Wonder board: continent-based special powers</li>
+    <li class="mod">Eclipse: Age III special — triggers eclipse scoring bonus for region holder</li>
+    <li class="mod">Alliance = non-aggression; war still happens but at −50% penalty</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft concept, alliance, stats, globe</li>
+  </ul></td>
+  <td class="hook">3 Ages = globe fills across 3 eras. Military adjacency means neighbors on the globe actually matter.</td>
+  <td><span class="dev">40h</span></td>
+</tr>
+
+<tr class="t4">
+  <td><div class="gamename">Coup</div><div class="gamesub">Hidden roles, bluff, eliminate</div></td>
+  <td><span class="badge b-bluff">Bluffing</span></td>
+  <td>2–6 → <span style="color:#44ff88">Native 3</span></td>
+  <td>2</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-na">N/A</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj4">Major</span></td>
+  <td><ul class="chg">
+    <li class="mod">Draft 2 countries = your hidden "roles" (based on highest stat category)</li>
+    <li class="add">Actions tied to role: GDP country = Duke (tax 3 coins); Military = Captain (steal 2 coins); Population = Ambassador (swap hand); Forest = Contessa (block assassination)</li>
+    <li class="add">Claim ANY action but opponents can challenge — reveal or lose a country</li>
+    <li class="add">Coup (7 coins): force opponent to reveal+lose a country</li>
+    <li class="add">Lose both countries = eliminated</li>
+    <li class="mod">Eclipse: wild role — any country in eclipse region can claim any action once per game</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft (reduced), globe, stat thematic mapping</li>
+  </ul></td>
+  <td class="hook">Roles = country archetypes (GDP=banker, Military=soldier). Bluffing about which countries you actually hold.</td>
+  <td><span class="dev">18h</span></td>
+</tr>
+
+<tr class="t4">
+  <td><div class="gamename">Love Letter</div><div class="gamesub">1-card hand, deduction, elimination</div></td>
+  <td><span class="badge b-bluff">Bluffing</span></td>
+  <td>2–4 → 3</td>
+  <td>1+1</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-na">N/A</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj4">Major</span></td>
+  <td><ul class="chg">
+    <li class="mod">Hold only 1 country at a time (hand size = 1)</li>
+    <li class="add">Draw = take 1 new country; must play 1 immediately</li>
+    <li class="add">Play effects by stat tier: highest GDP = Princess (discard = lose); #2 = Minister (if hand &gt;12 stat sum, out); etc.</li>
+    <li class="add">Guard: name a country — if opponent holds it, they're out</li>
+    <li class="add">Priest: look at opponent's current country</li>
+    <li class="add">Last player standing or highest country at deck-empty wins round</li>
+    <li class="mod">Eclipse: holding eclipse-region country = immunity token this round</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft (radically simplified), stat comparison, globe</li>
+  </ul></td>
+  <td class="hook">1-country hand — globe shows single massive highlighted nation. Deduction via stat clues.</td>
+  <td><span class="dev">14h</span></td>
+</tr>
+
+<tr class="t4">
+  <td><div class="gamename">Clue / Cluedo</div><div class="gamesub">Deduction via stat elimination</div></td>
+  <td><span class="badge b-dex">Deduction</span></td>
+  <td>3–6 → <span style="color:#44ff88">Native 3</span></td>
+  <td>6</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj4">Major</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking</li>
+    <li class="add">1 country secretly removed (the "culprit") — players deduce which</li>
+    <li class="add">Accusation: name country + which stat category makes it suspicious</li>
+    <li class="add">Clue: reveal one of your countries that disproves the guess</li>
+    <li class="mod">Bidding = auction for "investigation cards" (extra stat peeks)</li>
+    <li class="mod">Eclipse: countries in eclipse region are "off the board" — cannot be the culprit</li>
+    <li class="add">Alliance: share deduction notes — betrayal = false clue</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (detective board), draft, stat display, auction, eclipse</li>
+  </ul></td>
+  <td class="hook">Globe = detective map. Eliminated suspects grey out. Eclipse region is the crime scene. Perfect fit.</td>
+  <td><span class="dev">22h</span></td>
+</tr>
+
+<tr class="t4">
+  <td><div class="gamename">Dominion</div><div class="gamesub">Deck-building, buy-and-play engine</div></td>
+  <td><span class="badge b-engine">Engine Building</span></td>
+  <td>2–4 → 3</td>
+  <td>5/turn</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj4">Major</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove bidding phase, fixed trick structure</li>
+    <li class="add">Start: 10 Copper-equivalent countries (small GDP) in personal deck</li>
+    <li class="add">Buy phase: spend country GDP to purchase better countries from market</li>
+    <li class="add">Action phase: play action countries for effects (Military=attack, Forest=draw 2, etc.)</li>
+    <li class="add">Victory countries: accumulate high-area "Province" equivalent countries</li>
+    <li class="mod">Eclipse: kingdom card that lets you peek at opponents' next draw</li>
+    <li class="add">Trash: permanently remove weak countries from deck</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe display, stat system, 3-player structure</li>
+  </ul></td>
+  <td class="hook">Your deck = your empire. Buy India and it enters your rotation. Globe shows your territorial reach growing.</td>
+  <td><span class="dev">50h</span></td>
+</tr>
+
+<tr class="t4">
+  <td><div class="gamename">Ticket to Ride</div><div class="gamesub">Collect routes, connect cities</div></td>
+  <td><span class="badge b-engine">Network Building</span></td>
+  <td>2–5 → 3</td>
+  <td>4</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj4">Major</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove auction, trick-taking</li>
+    <li class="add">Destination tickets: secret card pairing 2 countries — connect = +pts, fail = −pts</li>
+    <li class="add">Claim route: spend matching-continent countries to connect globe adjacency</li>
+    <li class="add">Longest continuous route = 10pt bonus</li>
+    <li class="mod">Eclipse region = wild card countries (any continent)</li>
+    <li class="mod">Draft = draw route cards OR place connections each turn</li>
+    <li class="mod">Alliance = share route — both score but split countries needed</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (essential — the board IS the globe), adjacency, stats</li>
+    <li class="keep">3-player structure, alliance concept</li>
+  </ul></td>
+  <td class="hook">Globe adjacency IS the game board. Draw a route card connecting Norway to Japan — now you need it.</td>
+  <td><span class="dev">35h</span></td>
+</tr>
+
+<tr class="t4">
+  <td><div class="gamename">Battleship</div><div class="gamesub">Hidden grids, call shots</div></td>
+  <td><span class="badge b-war">Wargame</span></td>
+  <td>2 → 3</td>
+  <td>—</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="adj adj4">Major</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove all card-game mechanics</li>
+    <li class="add">Players secretly "park" countries on the globe without revealing</li>
+    <li class="add">Attack by naming a country — hit/miss revealed</li>
+    <li class="add">Ships = clusters of adjacent countries (2-country destroyer, 5-country carrier)</li>
+    <li class="add">Sink all ships = win</li>
+    <li class="mod">Eclipse: sonar pulse reveals all countries in region (one use)</li>
+    <li class="add">Stat: larger-area countries are bigger ships (harder to hide)</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (entire game board), hidden info, adjacency</li>
+  </ul></td>
+  <td class="hook">Globe IS the grid. Countries hidden on real geography — Russia is a massive carrier, Luxembourg a one-cell scout.</td>
+  <td><span class="dev">25h</span></td>
+</tr>
+
+<!-- ═══════════════════════════════════════════ TIER 5 ═══ -->
+<tr class="sec"><td colspan="15">▌ TIER 5 — REIMAGINING · Geobridge becomes a platform; existing code = asset library</td></tr>
+
+<tr class="t5">
+  <td><div class="gamename">Eclipse (Board Game)</div><div class="gamesub">4X space → 4X geopolitics</div></td>
+  <td><span class="badge b-4x">4X Strategy</span></td>
+  <td>2–6 → <span style="color:#44ff88">Native 3</span></td>
+  <td>—</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj5">Reimagine</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking entirely</li>
+    <li class="add">Resources: GDP=money, Population=ships, Military=combat, Forest=research, Internet=tech</li>
+    <li class="add">Tech tree: research upgrades (improved combat, better economy, faster expansion)</li>
+    <li class="add">eXplore: draft/claim unknown countries each turn</li>
+    <li class="add">eXpand: pay population to colonize adjacent countries</li>
+    <li class="add">eXploit: collect resource income per country owned</li>
+    <li class="add">eXterminate: attack adjacent — stat comparison with fleet modifiers</li>
+    <li class="mod">Eclipse mechanic = literal eclipse event: region blocked from combat this round</li>
+    <li class="add">Ancients: unclaimed countries defended by fixed "ancient" stat value</li>
+    <li class="add">Reputation tiles: VP for combat victories</li>
+    <li class="mod">Alliance = ambassador tiles with VP for maintaining peace</li>
+    <li class="add">Traitor: if alliance broken, lose ambassador VP</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (hex = countries), all stats, eclipse concept</li>
+    <li class="keep">Alliance + penalty, 3-player structure, timer</li>
+    <li class="keep">Draft phase (becomes eXplore)</li>
+  </ul></td>
+  <td class="hook">The naming IS intentional. Your eclipse mechanic becomes a literal celestial event that halts geopolitical conflict in a region. Existing stat system maps 1:1 to all 5 Eclipse resources. Most natural reimagining possible.</td>
+  <td><span class="dev">80h</span></td>
+</tr>
+
+<tr class="t5">
+  <td><div class="gamename">Twilight Struggle</div><div class="gamesub">Card-driven influence, Cold War</div></td>
+  <td><span class="badge b-war">Card-driven War</span></td>
+  <td>2 → 3</td>
+  <td>8</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj5">Reimagine</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking</li>
+    <li class="add">Countries have influence values per faction (like stability)</li>
+    <li class="add">Play country card: use its ops value for influence OR trigger its special event</li>
+    <li class="add">Special events: high-GDP country = economic card (place 2 influence anywhere), military = coup, etc.</li>
+    <li class="add">DEFCON track: alliance-breaking escalates DEFCON; reach 1 = nuclear war, trigger player loses</li>
+    <li class="add">Domination: control majority of countries in a region = VP</li>
+    <li class="add">Scoring cards: when played, immediately score a region</li>
+    <li class="mod">Eclipse = superpower projection: 1 region counts double for scoring this round</li>
+    <li class="add">3-faction variant: Cyan/Magenta/Green = USA/USSR/China equivalent</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (entire map), stats, regions, alliance/penalty</li>
+    <li class="keep">Eclipse region concept, draft (becomes hand management)</li>
+  </ul></td>
+  <td class="hook">Existing military % stat = coup strength. Forest/Internet = soft power. Eclipse = Cuban Missile equivalent. Geopolitics IS the mechanic.</td>
+  <td><span class="dev">80h</span></td>
+</tr>
+
+<tr class="t5">
+  <td><div class="gamename">Pandemic</div><div class="gamesub">Cooperative: contain outbreaks globally</div></td>
+  <td><span class="badge b-coop">Cooperative</span></td>
+  <td>2–4 → 3</td>
+  <td>6</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj5">Reimagine</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove competitive structure entirely</li>
+    <li class="add">All 3 teams cooperative against disease spread</li>
+    <li class="add">Outbreak track: high-population countries spread disease to neighbors on failure</li>
+    <li class="add">Roles: GDP-specialist cures economic, Military curbs conflict spread, Internet contains disinformation</li>
+    <li class="add">Research stations: place in countries to enable cures</li>
+    <li class="add">Cure: collect 5 same-continent cards → cure that region's disease</li>
+    <li class="add">Lose conditions: 8 outbreaks OR run out of disease cubes OR card deck empty</li>
+    <li class="mod">Eclipse: this round's outbreak spreads only within this region — localise the crisis</li>
+    <li class="mod">Alliance REQUIRED — penalties for non-cooperation</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (essential), regions, adjacency, stat system</li>
+    <li class="keep">Eclipse region concept, timer</li>
+  </ul></td>
+  <td class="hook">Population stat = outbreak severity. High-pop countries (China, India) are the ticking bombs. Eclipse = quarantine zone.</td>
+  <td><span class="dev">60h</span></td>
+</tr>
+
+<tr class="t5">
+  <td><div class="gamename">Terraforming Mars</div><div class="gamesub">Engine building, incremental production</div></td>
+  <td><span class="badge b-engine">Engine Building</span></td>
+  <td>1–5 → 3</td>
+  <td>4+</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj5">Reimagine</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking</li>
+    <li class="add">Global parameters: CO₂ (inverse of Forest%), temperature (energy stat), oceans (coastal countries)</li>
+    <li class="add">Each turn: play country card → adjust global param + personal production</li>
+    <li class="add">Production tracks: GDP=money, Population=plants, Military=steel, Internet=power</li>
+    <li class="add">Milestones: first to hit a threshold (own 5 coastal countries, etc.) = 5VP</li>
+    <li class="add">Awards: end-game scoring for most of X (own most forested countries, etc.)</li>
+    <li class="mod">Eclipse: "asteroid event" — one region's temperature spike, bonus production for holders</li>
+    <li class="mod">Draft = card draft: 4 countries per round, pick 2 keep 2 pass</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe, all stats, regions, draft concept, alliance</li>
+  </ul></td>
+  <td class="hook">Real-world stats (Forest%, CO₂ proxy, coastal area) become terraforming parameters. Earth as the project.</td>
+  <td><span class="dev">70h</span></td>
+</tr>
+
+<tr class="t5">
+  <td><div class="gamename">Through the Ages</div><div class="gamesub">Civilization, card drafting, ages</div></td>
+  <td><span class="badge b-engine">Civilization</span></td>
+  <td>2–4 → 3</td>
+  <td>—</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="pill p-yes">Yes</span></td>
+  <td><span class="adj adj5">Reimagine</span></td>
+  <td><ul class="chg">
+    <li class="add">Draft a civilization hand from country pool each age</li>
+    <li class="add">Civil actions: draft countries, upgrade production</li>
+    <li class="add">Military actions: aggression (lose happiness/alliance standing)</li>
+    <li class="add">Age I/II/III: countries from different eras (historical stat snapshots)</li>
+    <li class="add">Happiness: too many military countries → civil unrest → lose culture</li>
+    <li class="add">Culture points: end-game score; most culture wins</li>
+    <li class="mod">Events: Age cards — eclipse events affect world production</li>
+    <li class="mod">Alliance = colonial pact — trade routes between held countries</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Draft, globe, stats, alliance, eclipse concept</li>
+  </ul></td>
+  <td class="hook">Age I = colonial era stats, Age III = modern. Watch the globe's stat distribution shift through history.</td>
+  <td><span class="dev">90h</span></td>
+</tr>
+
+<tr class="t5">
+  <td><div class="gamename">Diplomacy</div><div class="gamesub">Pure negotiation, simultaneous orders</div></td>
+  <td><span class="badge b-war">Negotiation</span></td>
+  <td>7 → 3</td>
+  <td>—</td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="adj adj5">Reimagine</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove all stats, bidding, trick-taking</li>
+    <li class="add">Simultaneous secret orders: move, support, convoy, hold</li>
+    <li class="add">Orders resolve simultaneously — no dice, pure logic</li>
+    <li class="add">Support: order another unit to reinforce — ganging up wins</li>
+    <li class="add">Stalemate: equal support = bounce, neither moves</li>
+    <li class="mod">Eclipse region = demilitarised zone — no orders execute in that region this season</li>
+    <li class="add">Win: control 18 supply centers (major countries)</li>
+    <li class="mod">Alliance = formal written treaty — binding but breakable with severe penalty</li>
+    <li class="add">Negotiation phase: 5 min open chat before each order phase</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (essential — the board), adjacency, alliance + penalty, 3-player</li>
+    <li class="keep">Eclipse region concept</li>
+  </ul></td>
+  <td class="hook">No dice. No stats. Pure geography and promises. The globe's adjacency graph IS the entire game.</td>
+  <td><span class="dev">45h</span></td>
+</tr>
+
+<tr class="t5">
+  <td><div class="gamename">Axis &amp; Allies</div><div class="gamesub">WWII simulation, multi-unit combat</div></td>
+  <td><span class="badge b-war">Wargame</span></td>
+  <td>2–5 → 3</td>
+  <td>—</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-no">Remove</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj5">Reimagine</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking, draft</li>
+    <li class="add">Each country has IPC (industrial production) = GDP stat</li>
+    <li class="add">Purchase units: infantry/tanks/planes with IPC income</li>
+    <li class="add">Combat: dice rolls per unit, modified by Military % stat</li>
+    <li class="add">Sea zones: naval combat between coastal countries</li>
+    <li class="add">Strategic bombing: reduce opponent's IPC income</li>
+    <li class="mod">Eclipse: "fog of war" region — units invisible to opponents</li>
+    <li class="mod">Alliance = axis/allied faction — formal and permanent per faction</li>
+    <li class="add">Tech research: spend IPC to unlock stat bonuses</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (the map), adjacency, all stats, alliance, regions</li>
+  </ul></td>
+  <td class="hook">GDP drives everything. Real-world income inequality = authentic power imbalance. Historical simulation on live globe.</td>
+  <td><span class="dev">100h</span></td>
+</tr>
+
+<tr class="t5">
+  <td><div class="gamename">Catan (Globe)</div><div class="gamesub">Resource hex, building, longest road</div></td>
+  <td><span class="badge b-engine">Resource Building</span></td>
+  <td>3–4 → <span style="color:#44ff88">Native 3</span></td>
+  <td>—</td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-perf">Perfect</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="pill p-mod">Modify</span></td>
+  <td><span class="adj adj5">Reimagine</span></td>
+  <td><ul class="chg">
+    <li class="rm">Remove trick-taking, bidding</li>
+    <li class="add">Each country = hex producing resources based on dominant stat (Forest%=wood, GDP=ore, Population=wheat, Area=brick)</li>
+    <li class="add">Dice roll each turn: countries with that "stat rank" produce for their owner</li>
+    <li class="add">Build: roads (adjacency connections), settlements (country intersection), cities</li>
+    <li class="add">Trade: offer countries/resources to opponents</li>
+    <li class="add">Robber: moves to eclipse region — blocks production, steal 1 resource</li>
+    <li class="mod">Draft = initial settlement placement on globe</li>
+    <li class="mod">Alliance = port trading agreements</li>
+    <li class="add">Longest Road = most connected continent chain</li>
+  </ul></td>
+  <td><ul class="chg">
+    <li class="keep">Globe (hexes = countries), all stats, regions, adjacency, alliance</li>
+  </ul></td>
+  <td class="hook">Robber = eclipse region mechanic repurposed. Real geography replaces abstract hexes. Australia = island continent = port bonus.</td>
+  <td><span class="dev">60h</span></td>
+</tr>
+
+</tbody>
+</table>
+</div>
+
+<!-- BOTTOM SUMMARY -->
+<div style="padding:16px 20px;border-top:1px solid #222;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;background:#080810">
+  <div style="background:#0d3d0d;border:1px solid #1a6a1a;border-radius:4px;padding:10px">
+    <div style="color:#55ff55;font-weight:700;font-size:13px">TIER 1 — Plug-in</div>
+    <div style="color:#888;font-size:11px;margin-top:4px">Bridge · Double Dummy · Whist</div>
+    <div style="color:#55ff55;font-size:20px;font-weight:700;margin-top:6px">3 games</div>
+    <div style="color:#555;font-size:10px">&lt;5h total dev</div>
+  </div>
+  <div style="background:#3d3000;border:1px solid #6a5500;border-radius:4px;padding:10px">
+    <div style="color:#ffdd44;font-weight:700;font-size:13px">TIER 2 — Light</div>
+    <div style="color:#888;font-size:11px;margin-top:4px">Spades · Hearts · Oh Hell · War · 500 · Pinochle</div>
+    <div style="color:#ffdd44;font-size:20px;font-weight:700;margin-top:6px">6 games</div>
+    <div style="color:#555;font-size:10px">~40h total dev</div>
+  </div>
+  <div style="background:#3d1a00;border:1px solid #6a3300;border-radius:4px;padding:10px">
+    <div style="color:#ff9944;font-weight:700;font-size:13px">TIER 3 — Moderate</div>
+    <div style="color:#888;font-size:11px;margin-top:4px">Euchre · High Society · For Sale · Skull · Hold'em · Blackjack · Risk · Stratego · Power Grid · Canasta</div>
+    <div style="color:#ff9944;font-size:20px;font-weight:700;margin-top:6px">10 games</div>
+    <div style="color:#555;font-size:10px">~180h total dev</div>
+  </div>
+  <div style="background:#3d0000;border:1px solid #6a1111;border-radius:4px;padding:10px">
+    <div style="color:#ff5544;font-weight:700;font-size:13px">TIER 4 — Major</div>
+    <div style="color:#888;font-size:11px;margin-top:4px">Sushi Go · 7 Wonders · Coup · Love Letter · Clue · Dominion · Ticket to Ride · Battleship</div>
+    <div style="color:#ff5544;font-size:20px;font-weight:700;margin-top:6px">8 games</div>
+    <div style="color:#555;font-size:10px">~230h total dev</div>
+  </div>
+  <div style="background:#1a003d;border:1px solid #330077;border-radius:4px;padding:10px">
+    <div style="color:#aa77ff;font-weight:700;font-size:13px">TIER 5 — Reimagine</div>
+    <div style="color:#888;font-size:11px;margin-top:4px">Eclipse · Twilight Struggle · Pandemic · Terraforming Mars · Through the Ages · Diplomacy · A&A · Catan</div>
+    <div style="color:#aa77ff;font-size:20px;font-weight:700;margin-top:6px">8 games</div>
+    <div style="color:#555;font-size:10px">~590h total dev</div>
+  </div>
+</div>
+
+<div style="padding:10px 20px;color:#333;font-size:10px;border-top:1px solid #111">
+  Generated for Geobridge · 38 games analysed · Eclipse mechanic: bid region, exactly-1-card-in-region = auto-win trick · Stats: GDP, Area, Population, Neighbors, Forest%, Internet%, Military%GDP · 3 teams (Cyan/Magenta/Green)
+</div>
+
+</body>
+</html>
